@@ -200,10 +200,15 @@ class StyGigSageMakerPipeline:
         
         logger.info("Creating SageMaker Estimator...")
         
+        # Get the parent directory (project root) to include src/ in upload
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)  # Go up one level from sagemaker/
+        
         # Define the estimator with config values
         estimator = PyTorch(
-            entry_point='train.py',
-            source_dir='.',  # Current directory containing stygig package
+            entry_point='sagemaker/train.py',  # Relative to project root
+            source_dir=project_root,  # Project root containing src/stygig
             role=self.role,
             instance_type=self.training_instance_type,
             instance_count=1,
@@ -321,14 +326,13 @@ class StyGigSageMakerPipeline:
         
         try:
             # Deploy directly from the trained estimator (recommended approach)
+            # It inherits entry_point and source_dir from training
             predictor = estimator.deploy(
                 initial_instance_count=1,
                 instance_type=self.inference_instance_type,
                 endpoint_name=self.endpoint_name,
                 serializer=JSONSerializer(),
-                deserializer=JSONDeserializer(),
-                entry_point='inference.py',  # Specify inference script
-                source_dir='.'
+                deserializer=JSONDeserializer()
             )
             
             logger.info(f"Model deployed to endpoint: {self.endpoint_name}")
@@ -339,9 +343,14 @@ class StyGigSageMakerPipeline:
             
             # Fallback: Create PyTorch model separately then deploy
             try:
+                # Get the parent directory (project root) for fallback deployment
+                import os
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                project_root = os.path.dirname(current_dir)
+                
                 model = PyTorch(
-                    entry_point='inference.py',
-                    source_dir='.',
+                    entry_point='sagemaker/inference.py',
+                    source_dir=project_root,
                     role=self.role,
                     model_data=model_data_uri,
                     framework_version='2.0.0',

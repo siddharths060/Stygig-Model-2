@@ -31,9 +31,9 @@ from PIL import Image
 import faiss
 
 # Add the stygig module to the path
-sys.path.append('/opt/ml/code')
-sys.path.append('/opt/ml/code/src')
-sys.path.append('/opt/ml/code/src/stygig')
+# SageMaker uploads source_dir to /opt/ml/code/, so src/stygig will be at /opt/ml/code/src/stygig
+sys.path.insert(0, '/opt/ml/code')
+sys.path.insert(0, '/opt/ml/code/src')
 
 # Configure logging
 logging.basicConfig(
@@ -175,8 +175,8 @@ class FashionDatasetProcessor:
         try:
             import torch
             import open_clip
-            from stygig.core.color_enhanced import ColorProcessor
-            from stygig.core.gender_enhanced import GenderClassifier
+            from stygig.core.color_logic import ColorProcessor
+            from stygig.core.gender_logic import GenderClassifier
             
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             logger.info(f"Using device: {self.device}")
