@@ -187,8 +187,10 @@ def create_visual_output(input_image_path, recommendations, result, output_dir='
 def test_endpoint(endpoint_name, image_path=None, s3_uri=None, top_k=5, save_visual=False):
     """Send test request to endpoint and display results."""
     try:
-        # Create SageMaker runtime client
-        runtime = boto3.client('sagemaker-runtime', region_name='us-east-1')
+        # Create SageMaker runtime client with extended timeout
+        from botocore.config import Config
+        config = Config(read_timeout=300)  # 5 minutes timeout for first request (cold start)
+        runtime = boto3.client('sagemaker-runtime', region_name='us-east-1', config=config)
         
         logger.info(f"Testing endpoint: {endpoint_name}")
         
@@ -231,6 +233,7 @@ def test_endpoint(endpoint_name, image_path=None, s3_uri=None, top_k=5, save_vis
         }
         
         logger.info(f"Sending inference request (top_k={top_k})...")
+        logger.info("⏳ Note: First request may take 1-2 minutes (cold start - loading model)")
         
         # Invoke endpoint
         response = runtime.invoke_endpoint(
