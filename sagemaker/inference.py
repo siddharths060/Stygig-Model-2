@@ -158,25 +158,44 @@ class FashionRecommendationInference:
             from stygig.core.color_logic import ColorProcessor
             from stygig.core.gender_logic import GenderClassifier
             
+            logger.info("Initializing models (this may take 30-60 seconds on first load)...")
+            start_time = __import__('time').time()
+            
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             logger.info(f"Using device: {self.device}")
             
-            # Initialize CLIP model
-            model_components = open_clip.create_model_and_transforms(
-                self.config['clip_model'],
-                pretrained=self.config['clip_pretrained']
-            )
+            # Initialize CLIP model with caching and timeout handling
+            try:
+                logger.info(f"Loading CLIP model: {self.config['clip_model']}/{self.config['clip_pretrained']}")
+                
+                # Set cache directory to model dir to avoid re-downloads
+                os.environ['TORCH_HOME'] = str(self.model_dir / '.cache')
+                os.environ['HF_HOME'] = str(self.model_dir / '.cache')
+                
+                model_components = open_clip.create_model_and_transforms(
+                    self.config['clip_model'],
+                    pretrained=self.config['clip_pretrained'],
+                    cache_dir=str(self.model_dir / '.cache')
+                )
+                
+                if len(model_components) >= 2:
+                    self.clip_model = model_components[0]
+                    self.clip_preprocess = model_components[1]
+                else:
+                    raise ValueError("Unexpected return from create_model_and_transforms")
+                
+                self.clip_model = self.clip_model.to(self.device)
+                self.clip_model.eval()
+                
+                logger.info(f"✓ CLIP model loaded in {__import__('time').time() - start_time:.1f}s")
+                
+            except Exception as e:
+                logger.error(f"Failed to load CLIP model: {e}")
+                # Try to load from local cache if download fails
+                logger.warning("Attempting to load from local cache...")
+                raise
             
-            if len(model_components) >= 2:
-                self.clip_model = model_components[0]
-                self.clip_preprocess = model_components[1]
-            else:
-                raise ValueError("Unexpected return from create_model_and_transforms")
-            
-            self.clip_model = self.clip_model.to(self.device)
-            self.clip_model.eval()
-            
-            # Initialize other processors
+            # Initialize other processors (lightweight, fast)
             n_clusters = self.config.get('n_clusters', 3)
             self.color_processor = ColorProcessor(n_clusters=n_clusters)
             self.gender_classifier = GenderClassifier()
