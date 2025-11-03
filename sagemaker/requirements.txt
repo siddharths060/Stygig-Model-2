@@ -5,13 +5,13 @@
 # Install these FIRST to prevent NumPy 2.x incompatibility issues
 numpy==1.26.4
 scipy==1.11.4  
-typing-extensions==4.8.0
+typing-extensions>=4.12.0
 
 # Numba compatible with NumPy 1.26.4 (prevents dependency conflicts)
 numba==0.59.1
 
 # Scikit-learn with compatible version (may be pre-installed but ensuring compatibility)
-scikit-learn==1.3.2
+scikit-learn>=1.4.0,<1.8.0
 
 # FAISS for similarity search (not pre-installed)
 faiss-cpu==1.8.0
