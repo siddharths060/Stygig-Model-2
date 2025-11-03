@@ -168,14 +168,19 @@ class FashionRecommendationInference:
             try:
                 logger.info(f"Loading CLIP model: {self.config['clip_model']}/{self.config['clip_pretrained']}")
                 
-                # Set cache directory to model dir to avoid re-downloads
-                os.environ['TORCH_HOME'] = str(self.model_dir / '.cache')
-                os.environ['HF_HOME'] = str(self.model_dir / '.cache')
+                # Set cache directory to /tmp (writable) to avoid re-downloads
+                # SageMaker's /opt/ml/model is read-only, so we use /tmp for cache
+                cache_dir = '/tmp/.cache'
+                os.makedirs(cache_dir, exist_ok=True)
+                os.environ['TORCH_HOME'] = cache_dir
+                os.environ['HF_HOME'] = cache_dir
+                
+                logger.info(f"Using cache directory: {cache_dir}")
                 
                 model_components = open_clip.create_model_and_transforms(
                     self.config['clip_model'],
                     pretrained=self.config['clip_pretrained'],
-                    cache_dir=str(self.model_dir / '.cache')
+                    cache_dir=cache_dir
                 )
                 
                 if len(model_components) >= 2:
