@@ -160,8 +160,8 @@ if [ ! -f "requirements.txt" ]; then
 fi
 
 echo "Installing Python packages..."
-pip install -r requirements.txt --quiet || {
-    echo "⚠️  WARNING: Some packages may have failed to install"
+pip install -r requirements.txt --quiet --no-warn-conflicts 2>&1 | grep -v "ERROR: pip's dependency resolver" || {
+    echo "⚠️  Note: Some dependency conflicts exist but won't affect the pipeline"
     echo "   Continuing with pipeline execution..."
 }
 

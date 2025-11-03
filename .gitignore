@@ -101,10 +101,9 @@ embeddings/
 faiss_index/
 
 # ============================================================================
-# DATASET (TOO LARGE FOR GIT)
+# DATASET (TOO LARGE FOR GIT - STORED IN S3)
 # ============================================================================
-outfits_dataset/*
-!outfits_dataset/.gitkeep
+outfits_dataset/
 dataset/
 data/
 *.jpg
@@ -146,8 +145,19 @@ temp/
 sagemaker-*/
 
 # ============================================================================
-# TESTING
+# LOCAL TESTING (NOT NEEDED IN SAGEMAKER)
 # ============================================================================
+# Testing directory - only needed for local development
+testing/
+test_*.py
+*_test.py
+integration_test.py
+local_train_test.py
+
+# Requirements for local testing only
+requirements_local.txt
+
+# Testing frameworks
 .pytest_cache/
 .coverage
 htmlcov/
@@ -158,10 +168,25 @@ coverage.xml
 .hypothesis/
 
 # ============================================================================
-# DOCUMENTATION BUILD
+# DOCUMENTATION & MARKDOWN (NOT NEEDED IN SAGEMAKER)
 # ============================================================================
+# Keep only essential docs in repo, exclude verbose documentation
+REFACTORING_SUMMARY.md
+QUICKSTART.md
+DEPENDENCY_WARNINGS.md
+PROJECT_STRUCTURE.txt
+*.md.backup
+
+# Documentation build artifacts
 docs/_build/
 site/
+
+# ============================================================================
+# HELPER SCRIPTS (NOT NEEDED IN SAGEMAKER)
+# ============================================================================
+# Verification and utility scripts for local development
+verify_structure.sh
+make_executable.sh
 
 # ============================================================================
 # BACKUP & GENERATED FILES

@@ -1,30 +1,52 @@
 # SageMaker-optimized requirements for fashion recommendation training
 # Only includes packages NOT pre-installed in SageMaker PyTorch containers
+# Designed to minimize conflicts with pre-installed packages
 
-# CRITICAL: Core numerical packages - constrain to NumPy 1.x compatible versions
-# Install these FIRST to prevent NumPy 2.x incompatibility issues
-numpy==1.26.4
-scipy==1.11.4  
+# ============================================================================
+# CRITICAL: Core numerical packages
+# ============================================================================
+# Use NumPy 1.x for compatibility with existing SageMaker packages
+numpy>=1.26.0,<2.0.0
+scipy>=1.11.0
+
+# ============================================================================
+# TYPING & COMPATIBILITY
+# ============================================================================
+# Upgraded to fix TypeIs import error with pydantic
 typing-extensions>=4.12.0
 
-# Numba compatible with NumPy 1.26.4 (prevents dependency conflicts)
-numba==0.59.1
+# ============================================================================
+# MACHINE LEARNING
+# ============================================================================
+# Numba compatible with NumPy 1.26.4
+numba>=0.59.0,<0.60.0
 
-# Scikit-learn with compatible version (may be pre-installed but ensuring compatibility)
+# Scikit-learn - use range compatible with autogluon
 scikit-learn>=1.4.0,<1.8.0
 
-# FAISS for similarity search (not pre-installed)
-faiss-cpu==1.8.0
+# ============================================================================
+# SIMILARITY SEARCH
+# ============================================================================
+# FAISS for efficient similarity search (not pre-installed)
+faiss-cpu>=1.8.0
 
-# CLIP for fashion embeddings (not pre-installed) 
-# Using specific version to avoid pulling in NumPy 2.x dependencies
-open_clip_torch==2.24.0
+# ============================================================================
+# VISION & EMBEDDINGS
+# ============================================================================
+# CLIP for fashion embeddings (not pre-installed)
+open_clip_torch>=2.24.0
 
+# ============================================================================
+# COLOR PROCESSING
+# ============================================================================
 # Color processing for fashion features
-colormath==3.0.0
+colormath>=3.0.0
 
+# ============================================================================
+# OPTIONAL: GENDER CLASSIFICATION
+# ============================================================================
 # EfficientNet for gender classification (optional but recommended)
-efficientnet-pytorch==0.7.1
+efficientnet-pytorch>=0.7.0
 
 # Notes about pre-installed packages in SageMaker PyTorch containers:
 # - torch, torchvision (PyTorch ecosystem)
