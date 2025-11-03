@@ -301,8 +301,8 @@ class StyGigSageMakerPipeline:
                 except:
                     logger.warning(f"Could not validate model artifacts, proceeding with: {model_data}")
             
-            # Store model data on estimator for deployment
-            estimator.model_data = model_data
+            # Note: estimator.model_data is read-only and already set after training
+            # Just return the estimator with its model_data property and the validated URI
             
             return estimator, model_data
             
