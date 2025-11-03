@@ -1,0 +1,42 @@
+# SageMaker-optimized requirements for fashion recommendation training
+# Only includes packages NOT pre-installed in SageMaker PyTorch containers
+
+# CRITICAL: Core numerical packages - constrain to NumPy 1.x compatible versions
+# Install these FIRST to prevent NumPy 2.x incompatibility issues
+numpy==1.26.4
+scipy==1.11.4  
+typing-extensions==4.8.0
+
+# Numba compatible with NumPy 1.26.4 (prevents dependency conflicts)
+numba==0.59.1
+
+# Scikit-learn with compatible version (may be pre-installed but ensuring compatibility)
+scikit-learn==1.3.2
+
+# FAISS for similarity search (not pre-installed)
+faiss-cpu==1.8.0
+
+# CLIP for fashion embeddings (not pre-installed) 
+# Using specific version to avoid pulling in NumPy 2.x dependencies
+open_clip_torch==2.24.0
+
+# Color processing for fashion features
+colormath==3.0.0
+
+# EfficientNet for gender classification (optional but recommended)
+efficientnet-pytorch==0.7.1
+
+# Notes about pre-installed packages in SageMaker PyTorch containers:
+# - torch, torchvision (PyTorch ecosystem)
+# - numpy, scipy (numerical computing)
+# - pillow, opencv-python (image processing)
+# - scikit-learn (ML algorithms)
+# - boto3, botocore (AWS SDK)
+# - sagemaker (SageMaker SDK)
+# - pandas (data processing)
+# - matplotlib, seaborn (plotting)
+# - jupyter, ipython (notebooks)
+
+# If needed, uncomment specific versions:
+# torch==2.0.0
+# torchvision==0.15.0

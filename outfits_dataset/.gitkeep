@@ -1,0 +1,22 @@
+# This directory should contain your fashion dataset
+# Expected structure:
+# outfits_dataset/
+#   train/
+#     upperwear/
+#       shirt/
+#       tshirt/
+#       jacket/
+#     bottomwear/
+#       pants/
+#       shorts/
+#       skirt/
+#     footwear/
+#       shoes/
+#       sneakers/
+#       heels/
+#       flats/
+#     accessories/
+#       bag/
+#       hat/
+#     one-piece/
+#       dress/

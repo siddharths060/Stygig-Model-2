@@ -1,0 +1,23 @@
+# Local Testing Requirements for StyGig
+# Install these dependencies for local development and testing
+
+# Core ML libraries
+torch>=2.0.0
+torchvision>=0.15.0
+open_clip_torch==2.24.0
+faiss-cpu>=1.8.0
+
+# Image processing
+Pillow>=9.0.0
+numpy>=1.24.0,<2.0.0
+
+# Scientific computing  
+scipy>=1.10.0
+scikit-learn>=1.2.0
+
+# Color processing
+colormath==3.0.0
+
+# Utilities
+tqdm
+requests

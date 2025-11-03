@@ -1,0 +1,2 @@
+# This directory contains model outputs and artifacts from local training
+# Add outputs/ to .gitignore to avoid committing large files
