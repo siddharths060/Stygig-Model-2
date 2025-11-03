@@ -33,21 +33,36 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def get_model_uri_from_training_job(job_name, region='us-east-1'):
-    """Get model artifact S3 URI from training job name."""
-    try:
-        sagemaker_client = boto3.client('sagemaker', region_name=region)
-        
-        # Get training job details
-        response = sagemaker_client.describe_training_job(TrainingJobName=job_name)
-        
-        model_uri = response['ModelArtifacts']['S3ModelArtifacts']
-        logger.info(f"Found model artifacts: {model_uri}")
-        
-        return model_uri
-    except Exception as e:
-        logger.error(f"Failed to get model URI from training job: {e}")
-        raise
+def get_model_uri_from_training_job(job_name, region='us-east-1', training_region=None):
+    """Get model artifact S3 URI from training job name.
+    
+    Args:
+        job_name: Training job name
+        region: Region to search for training job (defaults to us-east-1)
+        training_region: Alternative region if training was in different region
+    """
+    # Try the specified region first
+    regions_to_try = [region]
+    if training_region and training_region != region:
+        regions_to_try.insert(0, training_region)
+    
+    for try_region in regions_to_try:
+        try:
+            sagemaker_client = boto3.client('sagemaker', region_name=try_region)
+            
+            # Get training job details
+            response = sagemaker_client.describe_training_job(TrainingJobName=job_name)
+            
+            model_uri = response['ModelArtifacts']['S3ModelArtifacts']
+            logger.info(f"Found model artifacts in {try_region}: {model_uri}")
+            
+            return model_uri
+        except Exception as e:
+            logger.debug(f"Training job not found in {try_region}: {e}")
+            continue
+    
+    # If not found in any region, raise error
+    raise RuntimeError(f"Training job {job_name} not found in regions: {regions_to_try}")
 
 def deploy_model(model_uri, endpoint_name=None, instance_type='ml.m5.large', region='us-east-1'):
     """Deploy model from S3 URI to SageMaker endpoint."""
@@ -130,7 +145,9 @@ def main():
     parser.add_argument('--instance-type', type=str, default='ml.m5.large',
                        help='Instance type for endpoint')
     parser.add_argument('--region', type=str, default='us-east-1',
-                       help='AWS region')
+                       help='AWS region for endpoint deployment')
+    parser.add_argument('--training-region', type=str, default='ap-south-1',
+                       help='AWS region where training job was created')
     
     args = parser.parse_args()
     
@@ -144,7 +161,12 @@ def main():
         logger.info(f"Using provided model URI: {model_uri}")
     elif args.training_job_name:
         logger.info(f"Getting model URI from training job: {args.training_job_name}")
-        model_uri = get_model_uri_from_training_job(args.training_job_name, args.region)
+        logger.info(f"Searching in regions: {args.training_region}, {args.region}")
+        model_uri = get_model_uri_from_training_job(
+            args.training_job_name, 
+            args.region,
+            args.training_region
+        )
     else:
         logger.error("Must provide either --model-uri or --training-job-name")
         return 1

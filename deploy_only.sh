@@ -12,13 +12,16 @@ echo ""
 
 # Configuration
 TRAINING_JOB_NAME="stygig-training-1762145223"  # Your successful training job
+MODEL_URI="s3://stygig-ml-s3/model-artifacts/stygig-training-1762145223/output/model.tar.gz"
 INSTANCE_TYPE="ml.m5.large"
-REGION="us-east-1"
+REGION="us-east-1"  # Endpoint deployment region
+TRAINING_REGION="ap-south-1"  # Region where training job was created
 
 echo "📦 Deployment Configuration:"
-echo "   Training Job: $TRAINING_JOB_NAME"
+echo "   Model URI: $MODEL_URI"
+echo "   Training Job: $TRAINING_JOB_NAME (in $TRAINING_REGION)"
+echo "   Endpoint Region: $REGION"
 echo "   Instance Type: $INSTANCE_TYPE"
-echo "   Region: $REGION"
 echo ""
 
 # Change to sagemaker directory
@@ -28,9 +31,9 @@ echo "🚀 Starting deployment (this takes 5-10 minutes)..."
 echo "─────────────────────────────────────────────────────────────────────────────"
 echo ""
 
-# Run deployment script
+# Run deployment script using direct model URI (more reliable for cross-region)
 python deploy_existing_model.py \
-    --training-job-name "$TRAINING_JOB_NAME" \
+    --model-uri "$MODEL_URI" \
     --instance-type "$INSTANCE_TYPE" \
     --region "$REGION"
 
