@@ -138,10 +138,8 @@ if ! aws sts get-caller-identity &> /dev/null; then
 fi
 
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-CURRENT_REGION=$(aws configure get region || echo "ap-south-1")
 print_success "AWS credentials configured"
 echo "   Account ID: $ACCOUNT_ID"
-echo "   Region: $CURRENT_REGION"
 
 ################################################################################
 # STEP 2: CONFIGURATION LOADING
@@ -160,20 +158,17 @@ export CLEANUP_AFTER_PIPELINE="${CLEANUP_AFTER_PIPELINE:-false}"
 export DEBUG_MODE="${DEBUG_MODE:-false}"
 export ENVIRONMENT="${ENVIRONMENT:-production}"
 
+# Hardcode CURRENT_REGION to ap-south-1
+CURRENT_REGION="ap-south-1"
+
 echo "📊 Configuration:"
 echo "   S3_BUCKET: $S3_BUCKET"
 echo "   DATASET_S3_URI: $DATASET_S3_URI"
-echo "   AWS_REGION: $AWS_REGION (S3 bucket region)"
+echo "   AWS_REGION: $AWS_REGION"
 echo "   SAGEMAKER_REGION: $CURRENT_REGION"
 echo "   TRAINING_INSTANCE: $TRAINING_INSTANCE_TYPE"
 echo "   INFERENCE_INSTANCE: $INFERENCE_INSTANCE_TYPE"
 echo "   USE_SPOT_INSTANCES: $USE_SPOT_INSTANCES"
-
-if [ "$AWS_REGION" != "$CURRENT_REGION" ]; then
-    print_warning "Cross-region setup detected"
-    echo "   S3 bucket in $AWS_REGION, SageMaker in $CURRENT_REGION"
-    echo "   Using on-demand instances for better availability"
-fi
 
 ################################################################################
 # STEP 3: DATASET VERIFICATION
