@@ -45,7 +45,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def delete_endpoint(endpoint_name: str, region: str = 'us-east-1') -> bool:
+def delete_endpoint(endpoint_name: str, region: str = 'ap-south-1') -> bool:
     """
     Delete an existing SageMaker endpoint and its configuration.
     
@@ -95,7 +95,7 @@ def delete_endpoint(endpoint_name: str, region: str = 'us-east-1') -> bool:
         raise
 
 
-def get_execution_role(region: str = 'us-east-1') -> str:
+def get_execution_role(region: str = 'ap-south-1') -> str:
     """
     Find SageMaker execution role automatically.
     
@@ -125,7 +125,7 @@ def deploy_endpoint(
     model_uri: str,
     endpoint_name: str = None,
     instance_type: str = 'ml.m5.large',
-    region: str = 'us-east-1',
+    region: str = 'ap-south-1',
     role: str = None
 ) -> tuple:
     """
@@ -281,8 +281,8 @@ Examples:
     parser.add_argument(
         '--region',
         type=str,
-        default='us-east-1',
-        help='AWS region (default: us-east-1)'
+        default='ap-south-1',
+        help='AWS region (default: ap-south-1)'
     )
     parser.add_argument(
         '--role',

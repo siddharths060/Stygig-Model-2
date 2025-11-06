@@ -14,7 +14,7 @@ echo ""
 TRAINING_JOB_NAME="stygig-training-1762145223"  # Your successful training job
 MODEL_URI="s3://stygig-ml-s3/model-artifacts/stygig-training-1762145223/output/model.tar.gz"
 INSTANCE_TYPE="ml.m5.large"
-REGION="us-east-1"  # Endpoint deployment region
+REGION="ap-south-1"  # Endpoint deployment region
 TRAINING_REGION="ap-south-1"  # Region where training job was created
 
 echo "📦 Deployment Configuration:"

@@ -195,7 +195,7 @@ def test_endpoint(endpoint_name, image_path=None, s3_uri=None, top_k=5, save_vis
         # Create SageMaker runtime client with extended timeout
         from botocore.config import Config
         config = Config(read_timeout=300)  # 5 minutes timeout for first request (cold start)
-        runtime = boto3.client('sagemaker-runtime', region_name='us-east-1', config=config)
+        runtime = boto3.client('sagemaker-runtime', region_name='ap-south-1', config=config)
         
         logger.info(f"Testing endpoint: {endpoint_name}")
         

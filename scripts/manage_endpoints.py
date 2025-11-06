@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 class EndpointManager:
     """Manages SageMaker endpoints for the StyGig project."""
     
-    def __init__(self, region: str = 'us-east-1', prefix: str = 'stygig'):
+    def __init__(self, region: str = 'ap-south-1', prefix: str = 'stygig'):
         """
         Initialize endpoint manager.
         
@@ -321,8 +321,8 @@ Examples:
     parser.add_argument(
         '--region',
         type=str,
-        default='us-east-1',
-        help='AWS region (default: us-east-1)'
+        default='ap-south-1',
+        help='AWS region (default: ap-south-1)'
     )
     
     parser.add_argument(

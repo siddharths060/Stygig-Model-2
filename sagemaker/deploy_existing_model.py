@@ -33,12 +33,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def get_model_uri_from_training_job(job_name, region='us-east-1', training_region=None):
+def get_model_uri_from_training_job(job_name, region='ap-south-1', training_region=None):
     """Get model artifact S3 URI from training job name.
     
     Args:
         job_name: Training job name
-        region: Region to search for training job (defaults to us-east-1)
+        region: Region to search for training job (defaults to ap-south-1)
         training_region: Alternative region if training was in different region
     """
     # Try the specified region first
@@ -64,7 +64,7 @@ def get_model_uri_from_training_job(job_name, region='us-east-1', training_regio
     # If not found in any region, raise error
     raise RuntimeError(f"Training job {job_name} not found in regions: {regions_to_try}")
 
-def deploy_model(model_uri, endpoint_name=None, instance_type='ml.m5.large', region='us-east-1'):
+def deploy_model(model_uri, endpoint_name=None, instance_type='ml.m5.large', region='ap-south-1'):
     """Deploy model from S3 URI to SageMaker endpoint."""
     try:
         # Get execution role
@@ -144,7 +144,7 @@ def main():
     parser.add_argument('--endpoint-name', type=str, help='Custom endpoint name')
     parser.add_argument('--instance-type', type=str, default='ml.m5.large',
                        help='Instance type for endpoint')
-    parser.add_argument('--region', type=str, default='us-east-1',
+    parser.add_argument('--region', type=str, default='ap-south-1',
                        help='AWS region for endpoint deployment')
     parser.add_argument('--training-region', type=str, default='ap-south-1',
                        help='AWS region where training job was created')

@@ -16,7 +16,7 @@
 #   --training-job-name NAME     Training job name (will fetch model URI)
 #   --endpoint-name NAME         Custom endpoint name (auto-generated if not provided)
 #   --instance-type TYPE         Instance type (default: ml.m5.large)
-#   --region REGION              AWS region (default: us-east-1)
+#   --region REGION              AWS region (default: ap-south-1)
 #   --role ARN                   IAM role ARN (auto-detected if not provided)
 #   --skip-delete                Don't delete existing endpoint
 #   --delete-existing            Delete existing endpoint with same name
@@ -40,7 +40,7 @@ MODEL_URI=""
 TRAINING_JOB_NAME=""
 ENDPOINT_NAME=""
 INSTANCE_TYPE="ml.m5.large"
-REGION="us-east-1"
+REGION="ap-south-1"
 ROLE=""
 SKIP_DELETE=false
 DELETE_EXISTING=false
@@ -89,7 +89,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --training-job-name NAME     Training job name"
             echo "  --endpoint-name NAME         Custom endpoint name"
             echo "  --instance-type TYPE         Instance type (default: ml.m5.large)"
-            echo "  --region REGION              AWS region (default: us-east-1)"
+            echo "  --region REGION              AWS region (default: ap-south-1)"
             echo "  --role ARN                   IAM role ARN"
             echo "  --skip-delete                Don't delete existing endpoint"
             echo "  --delete-existing            Delete existing endpoint"

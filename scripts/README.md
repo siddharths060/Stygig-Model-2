@@ -385,7 +385,7 @@ pip install -r requirements.txt
 - All scripts are designed to be run from the project root directory
 - Scripts automatically change to the correct directory
 - Comprehensive logging and error messages included
-- Cross-region AWS setup supported (S3 in ap-south-1, SageMaker in us-east-1)
+- Both S3 and SageMaker are configured to run in ap-south-1 region
 - All deployment scripts include extended timeouts for CLIP model loading
 
 ---

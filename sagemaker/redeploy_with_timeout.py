@@ -19,7 +19,7 @@ from datetime import datetime
 ENDPOINT_NAME_OLD = "stygig-endpoint-20251103-062336"
 MODEL_URI = "s3://stygig-ml-s3/model-artifacts/stygig-training-1762145223/output/model.tar.gz"
 INSTANCE_TYPE = "ml.m5.large"
-REGION = "us-east-1"
+REGION = "ap-south-1"
 
 # Extended timeouts for model loading
 CONTAINER_STARTUP_TIMEOUT = 600  # 10 minutes for first request

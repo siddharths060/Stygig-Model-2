@@ -33,7 +33,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def delete_endpoint(endpoint_name, region='us-east-1'):
+def delete_endpoint(endpoint_name, region='ap-south-1'):
     """Delete existing endpoint and its configuration."""
     try:
         sagemaker_client = boto3.client('sagemaker', region_name=region)
@@ -73,7 +73,7 @@ def delete_endpoint(endpoint_name, region='us-east-1'):
         logger.error(f"Failed to delete endpoint: {e}")
         return False
 
-def redeploy_with_timeouts(model_uri, endpoint_name=None, instance_type='ml.m5.large', region='us-east-1'):
+def redeploy_with_timeouts(model_uri, endpoint_name=None, instance_type='ml.m5.large', region='ap-south-1'):
     """Redeploy endpoint with increased timeouts."""
     try:
         session = Session(boto_session=boto3.Session(region_name=region))
@@ -186,7 +186,7 @@ def main():
                        help='S3 URI to model artifacts')
     parser.add_argument('--instance-type', type=str, default='ml.m5.large',
                        help='Instance type for endpoint')
-    parser.add_argument('--region', type=str, default='us-east-1',
+    parser.add_argument('--region', type=str, default='ap-south-1',
                        help='AWS region')
     parser.add_argument('--skip-delete', action='store_true',
                        help='Skip deleting old endpoint (create new with different name)')
