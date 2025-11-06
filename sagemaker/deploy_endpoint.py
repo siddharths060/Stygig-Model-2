@@ -178,6 +178,7 @@ def deploy_endpoint(
             model_server_workers=1,  # Single worker to reduce memory
             env={
                 # Extended timeout for CLIP model loading
+                'SAGEMAKER_MODEL_SERVER_TIMEOUT': '300',  # CRITICAL: SageMaker-specific timeout
                 'MODEL_SERVER_TIMEOUT': '300',  # 5 minutes per request
                 'MODEL_SERVER_WORKERS': '1',
                 'TS_MAX_REQUEST_SIZE': '100000000',  # 100MB

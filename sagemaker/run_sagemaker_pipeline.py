@@ -343,6 +343,7 @@ class StyGigSageMakerPipeline:
                 model_data_download_timeout=600,  # 10 minutes to download model
                 # Model server configuration via environment variables
                 env={
+                    'SAGEMAKER_MODEL_SERVER_TIMEOUT': '300',  # CRITICAL: SageMaker-specific timeout
                     'MODEL_SERVER_TIMEOUT': '300',  # 5 minutes per request
                     'MODEL_SERVER_WORKERS': '1',  # Single worker to reduce memory
                     'TS_MAX_REQUEST_SIZE': '100000000',  # 100MB max request

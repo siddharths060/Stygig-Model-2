@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Custom serve script for SageMaker PyTorch container
+# This overrides the default timeout settings
+
+# Set environment variables for extended timeouts
+export MODEL_SERVER_TIMEOUT=300
+export MODEL_SERVER_WORKERS=1
+export TS_DEFAULT_RESPONSE_TIMEOUT=300
+export TS_MAX_REQUEST_SIZE=100000000
+export TS_MAX_RESPONSE_SIZE=100000000
+export SAGEMAKER_MODEL_SERVER_TIMEOUT=300
+
+# Start the default SageMaker PyTorch serving
+exec /usr/local/bin/python -m sagemaker_pytorch_serving.serving "$@"
