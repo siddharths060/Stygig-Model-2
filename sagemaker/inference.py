@@ -159,14 +159,14 @@ class FashionRecommendationInference:
             raise
     
     def _initialize_models(self):
-        """Initialize CLIP and other models."""
+        """Initialize CLIP and other models with optimizations for faster loading."""
         try:
             import torch
             import open_clip
             from stygig.core.color_logic import ColorProcessor
             from stygig.core.gender_logic import GenderClassifier
             
-            logger.info("Initializing models (this may take 30-60 seconds on first load)...")
+            logger.info("Initializing models (optimized loading)...")
             start_time = __import__('time').time()
             
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -183,8 +183,13 @@ class FashionRecommendationInference:
                 os.environ['TORCH_HOME'] = cache_dir
                 os.environ['HF_HOME'] = cache_dir
                 
+                # Disable tokenizer warnings to speed up loading
+                os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+                
                 logger.info(f"Using cache directory: {cache_dir}")
                 
+                # Load model with progress tracking
+                logger.info("Step 1/3: Creating model architecture...")
                 model_components = open_clip.create_model_and_transforms(
                     self.config['clip_model'],
                     pretrained=self.config['clip_pretrained'],
@@ -197,8 +202,15 @@ class FashionRecommendationInference:
                 else:
                     raise ValueError("Unexpected return from create_model_and_transforms")
                 
+                logger.info("Step 2/3: Moving model to device...")
                 self.clip_model = self.clip_model.to(self.device)
+                
+                logger.info("Step 3/3: Setting model to eval mode...")
                 self.clip_model.eval()
+                
+                # Disable gradient computation for inference (memory optimization)
+                for param in self.clip_model.parameters():
+                    param.requires_grad = False
                 
                 logger.info(f"✓ CLIP model loaded in {__import__('time').time() - start_time:.1f}s")
                 
@@ -209,9 +221,12 @@ class FashionRecommendationInference:
                 raise
             
             # Initialize other processors (lightweight, fast)
+            logger.info("Initializing color and gender processors...")
             n_clusters = self.config.get('n_clusters', 3)
             self.color_processor = ColorProcessor(n_clusters=n_clusters)
             self.gender_classifier = GenderClassifier()
+            
+            logger.info(f"✓ All models initialized in {__import__('time').time() - start_time:.1f}s")
             
         except Exception as e:
             logger.error(f"Failed to initialize models: {e}")

@@ -327,15 +327,38 @@ class StyGigSageMakerPipeline:
         try:
             # Deploy directly from the trained estimator (recommended approach)
             # It inherits entry_point and source_dir from training
+            logger.info("Deploying with optimized timeout settings for CLIP model loading...")
+            logger.info("  - Model server timeout: 300s (5 minutes)")
+            logger.info("  - Container startup: 600s (10 minutes)")
+            logger.info("  - Model download: 600s (10 minutes)")
+            
             predictor = estimator.deploy(
                 initial_instance_count=1,
                 instance_type=self.inference_instance_type,
                 endpoint_name=self.endpoint_name,
                 serializer=JSONSerializer(),
-                deserializer=JSONDeserializer()
+                deserializer=JSONDeserializer(),
+                # Extended timeouts for CLIP model loading (cold start)
+                container_startup_health_check_timeout=600,  # 10 minutes for first startup
+                model_data_download_timeout=600,  # 10 minutes to download model
+                # Model server configuration via environment variables
+                env={
+                    'MODEL_SERVER_TIMEOUT': '300',  # 5 minutes per request
+                    'MODEL_SERVER_WORKERS': '1',  # Single worker to reduce memory
+                    'TS_MAX_REQUEST_SIZE': '100000000',  # 100MB max request
+                    'TS_MAX_RESPONSE_SIZE': '100000000',  # 100MB max response
+                    'TS_DEFAULT_RESPONSE_TIMEOUT': '300',  # 5 minutes timeout
+                    'TS_DEFAULT_WORKERS_PER_MODEL': '1',
+                    # Python/PyTorch optimizations
+                    'OMP_NUM_THREADS': '2',
+                    'MKL_NUM_THREADS': '2',
+                    'TOKENIZERS_PARALLELISM': 'false',
+                }
             )
             
             logger.info(f"Model deployed to endpoint: {self.endpoint_name}")
+            logger.info("⚠️  NOTE: First inference request will take 2-3 minutes (cold start)")
+            logger.info("    Subsequent requests will be fast (~1-2 seconds)")
             return predictor
             
         except Exception as e:
@@ -355,7 +378,18 @@ class StyGigSageMakerPipeline:
                     model_data=model_data_uri,
                     framework_version='2.0.0',
                     py_version='py310',
-                    sagemaker_session=self.sagemaker_session
+                    sagemaker_session=self.sagemaker_session,
+                    env={
+                        'MODEL_SERVER_TIMEOUT': '300',
+                        'MODEL_SERVER_WORKERS': '1',
+                        'TS_MAX_REQUEST_SIZE': '100000000',
+                        'TS_MAX_RESPONSE_SIZE': '100000000',
+                        'TS_DEFAULT_RESPONSE_TIMEOUT': '300',
+                        'TS_DEFAULT_WORKERS_PER_MODEL': '1',
+                        'OMP_NUM_THREADS': '2',
+                        'MKL_NUM_THREADS': '2',
+                        'TOKENIZERS_PARALLELISM': 'false',
+                    }
                 )
                 
                 predictor = model.deploy(
@@ -363,7 +397,9 @@ class StyGigSageMakerPipeline:
                     instance_type=self.inference_instance_type,
                     endpoint_name=self.endpoint_name,
                     serializer=JSONSerializer(),
-                    deserializer=JSONDeserializer()
+                    deserializer=JSONDeserializer(),
+                    container_startup_health_check_timeout=600,
+                    model_data_download_timeout=600
                 )
                 
                 logger.info(f"Model deployed via fallback method to endpoint: {self.endpoint_name}")

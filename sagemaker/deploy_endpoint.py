@@ -178,22 +178,26 @@ def deploy_endpoint(
             model_server_workers=1,  # Single worker to reduce memory
             env={
                 # Extended timeout for CLIP model loading
-                'MODEL_SERVER_TIMEOUT': '180',  # 3 minutes
+                'MODEL_SERVER_TIMEOUT': '300',  # 5 minutes per request
                 'MODEL_SERVER_WORKERS': '1',
                 'TS_MAX_REQUEST_SIZE': '100000000',  # 100MB
                 'TS_MAX_RESPONSE_SIZE': '100000000',
-                'TS_DEFAULT_RESPONSE_TIMEOUT': '180',
+                'TS_DEFAULT_RESPONSE_TIMEOUT': '300',
+                'TS_DEFAULT_WORKERS_PER_MODEL': '1',
                 # Optimization flags
-                'OMP_NUM_THREADS': '1',
-                'MKL_NUM_THREADS': '1',
+                'OMP_NUM_THREADS': '2',
+                'MKL_NUM_THREADS': '2',
+                'TOKENIZERS_PARALLELISM': 'false',
             }
         )
         
         logger.info("=" * 80)
-        logger.info("Deploying model (this takes 5-10 minutes)...")
+        logger.info("Deploying model with EXTENDED TIMEOUTS (this takes 5-10 minutes)...")
         logger.info(f"  Instance type: {instance_type}")
         logger.info(f"  Model URI: {model_uri}")
-        logger.info(f"  Timeouts: 180s (container), 300s (startup)")
+        logger.info(f"  Container startup: 600s (10 minutes)")
+        logger.info(f"  Model download: 600s (10 minutes)")
+        logger.info(f"  Model server: 300s (5 minutes per request)")
         logger.info("=" * 80)
         
         # Deploy with increased timeouts
@@ -203,9 +207,9 @@ def deploy_endpoint(
             endpoint_name=endpoint_name,
             serializer=JSONSerializer(),
             deserializer=JSONDeserializer(),
-            # Extended timeouts for model loading
-            container_startup_health_check_timeout=300,  # 5 minutes
-            model_data_download_timeout=300  # 5 minutes
+            # CRITICAL: Extended timeouts for CLIP model loading (cold start)
+            container_startup_health_check_timeout=600,  # 10 minutes for first startup
+            model_data_download_timeout=600  # 10 minutes to download model
         )
         
         logger.info("=" * 80)

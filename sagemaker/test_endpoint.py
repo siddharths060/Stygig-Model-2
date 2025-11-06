@@ -187,12 +187,20 @@ def create_visual_output(input_image_path, recommendations, result, output_dir='
 def test_endpoint(endpoint_name, image_path=None, s3_uri=None, top_k=5, save_visual=False):
     """Send test request to endpoint and display results."""
     try:
-        # Create SageMaker runtime client with extended timeout
+        # Create SageMaker runtime client with EXTENDED timeout
         from botocore.config import Config
-        config = Config(read_timeout=300)  # 5 minutes timeout for first request (cold start)
+        config = Config(
+            read_timeout=300,  # 5 minutes for first request (cold start with CLIP loading)
+            connect_timeout=60,  # 1 minute to establish connection
+            retries={'max_attempts': 0}  # Disable retries to avoid multiple cold starts
+        )
         runtime = boto3.client('sagemaker-runtime', region_name='ap-south-1', config=config)
         
         logger.info(f"Testing endpoint: {endpoint_name}")
+        logger.info("⚠️  IMPORTANT: First request takes 2-3 minutes (CLIP model cold start)")
+        logger.info("    The endpoint needs to download and load the CLIP model on first use.")
+        logger.info("    Subsequent requests will be fast (~1-2 seconds).")
+        logger.info("")
         
         # Handle S3 image if provided
         if s3_uri:
@@ -233,19 +241,24 @@ def test_endpoint(endpoint_name, image_path=None, s3_uri=None, top_k=5, save_vis
         }
         
         logger.info(f"Sending inference request (top_k={top_k})...")
-        logger.info("⏳ Note: First request may take 1-2 minutes (cold start - loading model)")
+        logger.info("⏳ Waiting for response (this may take 2-3 minutes on first request)...")
         
-        # Invoke endpoint
+        import time
+        start_time = time.time()
+        
+        # Invoke endpoint with extended timeout
         response = runtime.invoke_endpoint(
             EndpointName=endpoint_name,
             ContentType='application/json',
             Body=json.dumps(payload)
         )
         
+        elapsed_time = time.time() - start_time
+        
         # Parse response
         result = json.loads(response['Body'].read().decode())
         
-        logger.info("✅ Inference successful!")
+        logger.info(f"✅ Inference successful! (took {elapsed_time:.1f} seconds)")
         logger.info("=" * 80)
         logger.info("RECOMMENDATION RESULTS")
         logger.info("=" * 80)
@@ -283,6 +296,7 @@ def test_endpoint(endpoint_name, image_path=None, s3_uri=None, top_k=5, save_vis
         logger.info(f"   Processing time: {metadata.get('processing_time_ms', 0):.2f}ms")
         logger.info(f"   Total items searched: {metadata.get('total_items', 0)}")
         logger.info(f"   Model version: {metadata.get('model_version', 'unknown')}")
+        logger.info(f"   Request duration: {elapsed_time:.1f}s")
         logger.info("")
         logger.info("=" * 80)
         
@@ -299,6 +313,28 @@ def test_endpoint(endpoint_name, image_path=None, s3_uri=None, top_k=5, save_vis
         
     except Exception as e:
         logger.error(f"Endpoint test failed: {e}")
+        
+        # Check if it's a timeout error
+        if 'timed out' in str(e).lower() or 'timeout' in str(e).lower():
+            logger.error("")
+            logger.error("=" * 80)
+            logger.error("⚠️  TIMEOUT ERROR DETECTED")
+            logger.error("=" * 80)
+            logger.error("")
+            logger.error("This is likely because:")
+            logger.error("1. First request is loading the CLIP model (takes 2-3 minutes)")
+            logger.error("2. The endpoint needs more time to initialize")
+            logger.error("")
+            logger.error("SOLUTIONS:")
+            logger.error("1. Wait 2-3 minutes and try again (model will be cached)")
+            logger.error("2. Redeploy endpoint with increased timeouts:")
+            logger.error("   python sagemaker/redeploy_with_timeout.py")
+            logger.error("")
+            logger.error("3. Check CloudWatch logs for detailed errors:")
+            logger.error(f"   https://console.aws.amazon.com/cloudwatch/home?region=ap-south-1#logStream:group=/aws/sagemaker/Endpoints/{endpoint_name}")
+            logger.error("")
+            logger.error("=" * 80)
+        
         raise
 
 def main():
