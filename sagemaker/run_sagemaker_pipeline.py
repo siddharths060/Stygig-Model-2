@@ -325,23 +325,27 @@ class StyGigSageMakerPipeline:
             raise ValueError("Estimator is not associated with a training job")
         
         try:
-            # Deploy directly from the trained estimator (recommended approach)
-            # It inherits entry_point and source_dir from training
+            # CRITICAL: Create a new PyTorchModel with inference.py entry point
+            # Cannot use estimator.deploy() directly as it inherits train.py entry point
             logger.info("Deploying with optimized timeout settings for CLIP model loading...")
             logger.info("  - Model server timeout: 300s (5 minutes)")
             logger.info("  - Container startup: 600s (10 minutes)")
             logger.info("  - Model download: 600s (10 minutes)")
             
-            predictor = estimator.deploy(
-                initial_instance_count=1,
-                instance_type=self.inference_instance_type,
-                endpoint_name=self.endpoint_name,
-                serializer=JSONSerializer(),
-                deserializer=JSONDeserializer(),
-                # Extended timeouts for CLIP model loading (cold start)
-                container_startup_health_check_timeout=600,  # 10 minutes for first startup
-                model_data_download_timeout=600,  # 10 minutes to download model
-                # Model server configuration via environment variables
+            # Get the project root for source_dir
+            import os
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(current_dir)
+            
+            # Create PyTorchModel with correct inference entry point
+            from sagemaker.pytorch import PyTorchModel
+            model = PyTorchModel(
+                model_data=model_data_uri,
+                role=self.role,
+                entry_point='sagemaker/inference.py',  # CRITICAL: Use inference script not train script
+                source_dir=project_root,
+                framework_version='2.0.0',
+                py_version='py310',
                 env={
                     'SAGEMAKER_MODEL_SERVER_TIMEOUT': '300',  # CRITICAL: SageMaker-specific timeout
                     'MODEL_SERVER_TIMEOUT': '300',  # 5 minutes per request
@@ -355,6 +359,18 @@ class StyGigSageMakerPipeline:
                     'MKL_NUM_THREADS': '2',
                     'TOKENIZERS_PARALLELISM': 'false',
                 }
+            )
+            
+            # Deploy the model
+            predictor = model.deploy(
+                initial_instance_count=1,
+                instance_type=self.inference_instance_type,
+                endpoint_name=self.endpoint_name,
+                serializer=JSONSerializer(),
+                deserializer=JSONDeserializer(),
+                # Extended timeouts for CLIP model loading (cold start)
+                container_startup_health_check_timeout=600,  # 10 minutes for first startup
+                model_data_download_timeout=600,  # 10 minutes to download model
             )
             
             logger.info(f"Model deployed to endpoint: {self.endpoint_name}")
