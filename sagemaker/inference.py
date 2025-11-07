@@ -23,6 +23,10 @@ Usage:
 
 import os
 import sys
+import json
+import pickle
+import logging
+from pathlib import Path
 
 # Add src directory to Python path for stygig package imports
 current_dir = Path(__file__).resolve().parent
@@ -30,11 +34,6 @@ project_root = current_dir.parent
 src_dir = project_root / 'src'
 if src_dir.exists():
     sys.path.insert(0, str(src_dir))
-
-import json
-import pickle
-import logging
-from pathlib import Path
 from io import BytesIO
 from typing import Dict, List, Any, Tuple, Optional
 import base64
