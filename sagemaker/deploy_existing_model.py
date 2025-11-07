@@ -7,7 +7,7 @@ Use this when you have a successful training job and just want to deploy.
 
 Usage:
     python deploy_existing_model.py --model-uri s3://bucket/path/model.tar.gz
-    python deploy_existing_model.py --training-job-name stygig-training-1762145223
+    python deploy_existing_model.py --training-job-name stygig-training-1762498189
 """
 
 import os
@@ -160,7 +160,7 @@ def main():
     parser = argparse.ArgumentParser(description='Deploy existing StyGig model to SageMaker')
     parser.add_argument('--model-uri', type=str, help='S3 URI to model.tar.gz')
     parser.add_argument('--training-job-name', type=str, 
-                       default='stygig-training-1762145223',
+                       default='stygig-training-1762498189',
                        help='Training job name to get model URI from')
     parser.add_argument('--endpoint-name', type=str, help='Custom endpoint name')
     parser.add_argument('--instance-type', type=str, default='ml.m5.large',
