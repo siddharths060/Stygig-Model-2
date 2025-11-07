@@ -103,11 +103,12 @@ def deploy_model(model_uri, endpoint_name=None, instance_type='ml.m5.large', reg
         project_root = os.path.dirname(current_dir)
         
         # Create PyTorch model with extended timeouts for CLIP model loading
+        # NOTE: inference.py must be in code/ directory inside model.tar.gz
+        # The training script now copies it there automatically
         model = PyTorchModel(
             model_data=model_uri,
             role=role,
-            entry_point='sagemaker/inference.py',
-            source_dir=project_root,
+            entry_point='inference.py',  # CRITICAL FIX: Path relative to code/ in model.tar.gz
             framework_version='2.0.0',
             py_version='py310',
             sagemaker_session=session,

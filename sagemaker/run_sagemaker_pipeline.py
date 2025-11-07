@@ -338,12 +338,13 @@ class StyGigSageMakerPipeline:
             project_root = os.path.dirname(current_dir)
             
             # Create PyTorchModel with correct inference entry point
+            # NOTE: inference.py must be in code/ directory inside model.tar.gz
+            # The training script now copies it there automatically
             from sagemaker.pytorch import PyTorchModel
             model = PyTorchModel(
                 model_data=model_data_uri,
                 role=self.role,
-                entry_point='sagemaker/inference.py',  # CRITICAL: Use inference script not train script
-                source_dir=project_root,
+                entry_point='inference.py',  # CRITICAL FIX: Path relative to code/ in model.tar.gz
                 framework_version='2.0.0',
                 py_version='py310',
                 env={
@@ -388,9 +389,9 @@ class StyGigSageMakerPipeline:
                 current_dir = os.path.dirname(os.path.abspath(__file__))
                 project_root = os.path.dirname(current_dir)
                 
+                # NOTE: inference.py should be in code/ directory inside model.tar.gz
                 model = PyTorch(
-                    entry_point='sagemaker/inference.py',
-                    source_dir=project_root,
+                    entry_point='inference.py',  # CRITICAL FIX: Path relative to code/ in model.tar.gz
                     role=self.role,
                     model_data=model_data_uri,
                     framework_version='2.0.0',

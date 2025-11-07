@@ -672,6 +672,24 @@ def save_model_artifacts(args, metadata: Dict, embeddings_dict: Dict,
     if source_dir.exists():
         shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
     
+    # CRITICAL FIX: Copy inference.py to model artifacts (code/ directory)
+    # SageMaker expects inference script in model.tar.gz for custom handlers
+    code_dir = model_dir / 'code'
+    code_dir.mkdir(parents=True, exist_ok=True)
+    
+    inference_script = Path('/opt/ml/code/sagemaker/inference.py')
+    if inference_script.exists():
+        shutil.copy(inference_script, code_dir / 'inference.py')
+        logger.info(f"✅ Copied inference.py to {code_dir}")
+    else:
+        logger.warning(f"inference.py not found at {inference_script}")
+    
+    # Also copy requirements.txt for inference dependencies
+    requirements_file = Path('/opt/ml/code/sagemaker/requirements.txt')
+    if requirements_file.exists():
+        shutil.copy(requirements_file, code_dir / 'requirements.txt')
+        logger.info(f"✅ Copied requirements.txt to {code_dir}")
+    
     logger.info("Model artifacts saved successfully")
 
 def validate_training_environment():
