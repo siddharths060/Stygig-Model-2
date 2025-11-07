@@ -228,9 +228,9 @@ def deploy_endpoint(
             'region': region,
             'deployed_at': time.strftime('%Y-%m-%d %H:%M:%S'),
             'timeouts': {
-                'container': 180,
-                'startup': 300,
-                'download': 300
+                'container_startup': 600,  # 10 minutes
+                'model_download': 600,  # 10 minutes
+                'model_server': 300  # 5 minutes
             }
         }
         

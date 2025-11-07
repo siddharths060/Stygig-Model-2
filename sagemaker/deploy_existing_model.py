@@ -102,7 +102,7 @@ def deploy_model(model_uri, endpoint_name=None, instance_type='ml.m5.large', reg
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(current_dir)
         
-        # Create PyTorch model
+        # Create PyTorch model with extended timeouts for CLIP model loading
         model = PyTorchModel(
             model_data=model_uri,
             role=role,
@@ -110,18 +110,39 @@ def deploy_model(model_uri, endpoint_name=None, instance_type='ml.m5.large', reg
             source_dir=project_root,
             framework_version='2.0.0',
             py_version='py310',
-            sagemaker_session=session
+            sagemaker_session=session,
+            model_server_workers=1,  # Single worker to reduce memory usage
+            env={
+                # Extended timeout for CLIP model loading
+                'SAGEMAKER_MODEL_SERVER_TIMEOUT': '300',  # CRITICAL: SageMaker-specific timeout
+                'MODEL_SERVER_TIMEOUT': '300',  # 5 minutes per request
+                'MODEL_SERVER_WORKERS': '1',
+                'TS_MAX_REQUEST_SIZE': '100000000',  # 100MB
+                'TS_MAX_RESPONSE_SIZE': '100000000',
+                'TS_DEFAULT_RESPONSE_TIMEOUT': '300',
+                'TS_DEFAULT_WORKERS_PER_MODEL': '1',
+                # Optimization flags
+                'OMP_NUM_THREADS': '2',
+                'MKL_NUM_THREADS': '2',
+                'TOKENIZERS_PARALLELISM': 'false',
+            }
         )
         
-        logger.info("Deploying model to endpoint (this may take 5-10 minutes)...")
+        logger.info("Deploying model with EXTENDED TIMEOUTS (this may take 5-10 minutes)...")
+        logger.info("  Container startup: 600s (10 minutes)")
+        logger.info("  Model download: 600s (10 minutes)")
+        logger.info("  Model server: 300s (5 minutes per request)")
         
-        # Deploy to endpoint
+        # Deploy to endpoint with extended timeouts
         predictor = model.deploy(
             initial_instance_count=1,
             instance_type=instance_type,
             endpoint_name=endpoint_name,
             serializer=JSONSerializer(),
-            deserializer=JSONDeserializer()
+            deserializer=JSONDeserializer(),
+            # CRITICAL: Extended timeouts for CLIP model loading (cold start)
+            container_startup_health_check_timeout=600,  # 10 minutes for first startup
+            model_data_download_timeout=600  # 10 minutes to download model
         )
         
         logger.info(f"✅ Model deployed successfully!")

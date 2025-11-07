@@ -123,18 +123,25 @@ def redeploy_with_timeouts(model_uri, endpoint_name=None, instance_type='ml.m5.l
             # Extended timeouts for model loading
             model_server_workers=1,  # Single worker to reduce memory
             env={
-                'MODEL_SERVER_TIMEOUT': '180',  # 3 minutes for model loading
+                # CRITICAL: SageMaker-specific timeout for CLIP model loading
+                'SAGEMAKER_MODEL_SERVER_TIMEOUT': '300',  # 5 minutes for model_fn
+                'MODEL_SERVER_TIMEOUT': '300',  # 5 minutes for model loading
                 'MODEL_SERVER_WORKERS': '1',
                 'TS_MAX_REQUEST_SIZE': '100000000',  # 100MB max request
                 'TS_MAX_RESPONSE_SIZE': '100000000',
-                'TS_DEFAULT_RESPONSE_TIMEOUT': '180'
+                'TS_DEFAULT_RESPONSE_TIMEOUT': '300',
+                'TS_DEFAULT_WORKERS_PER_MODEL': '1',
+                # Optimization flags
+                'OMP_NUM_THREADS': '2',
+                'MKL_NUM_THREADS': '2',
+                'TOKENIZERS_PARALLELISM': 'false',
             }
         )
         
         logger.info("Deploying model (this takes 5-10 minutes)...")
         logger.info(f"   Instance type: {instance_type}")
         logger.info(f"   Model URI: {model_uri}")
-        logger.info("   Timeouts: 180s (container), 300s (client)")
+        logger.info("   Timeouts: 300s (model server), 600s (container startup), 600s (download)")
         
         # Deploy with increased timeouts
         predictor = model.deploy(
@@ -143,9 +150,9 @@ def redeploy_with_timeouts(model_uri, endpoint_name=None, instance_type='ml.m5.l
             endpoint_name=endpoint_name,
             serializer=JSONSerializer(),
             deserializer=JSONDeserializer(),
-            # Health check and startup timeouts
-            container_startup_health_check_timeout=300,  # 5 minutes
-            model_data_download_timeout=300  # 5 minutes for S3 download
+            # CRITICAL: Extended timeouts for CLIP model loading (cold start)
+            container_startup_health_check_timeout=600,  # 10 minutes for first startup
+            model_data_download_timeout=600  # 10 minutes for S3 download
         )
         
         logger.info(f"✅ Endpoint deployed successfully!")
@@ -160,9 +167,9 @@ def redeploy_with_timeouts(model_uri, endpoint_name=None, instance_type='ml.m5.l
             'instance_type': instance_type,
             'region': region,
             'timeouts': {
-                'container': 180,
-                'startup': 300,
-                'download': 300
+                'container_startup': 600,  # 10 minutes
+                'model_download': 600,  # 10 minutes
+                'model_server': 300  # 5 minutes
             }
         }
         
