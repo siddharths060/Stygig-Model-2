@@ -12,15 +12,15 @@ Asynchronous Inference Benefits:
 - Returns results via S3 + SNS notifications
 
 Usage:
-    # Deploy new async endpoint
-    python deploy_async_endpoint.py --model-uri s3://your-bucket/model.tar.gz
-
-    # Deploy with custom SNS topic
-    python deploy_async_endpoint.py --model-uri s3://bucket/model.tar.gz \
-        --sns-topic-arn arn:aws:sns:region:account:topic-name
+    # Deploy async endpoint (SNS topic required)
+    python deploy_async_endpoint.py \
+        --model-uri s3://your-bucket/model.tar.gz \
+        --sns-topic-arn arn:aws:sns:ap-south-1:123456789012:stygig-notifications
 
     # Deploy with custom S3 output path
-    python deploy_async_endpoint.py --model-uri s3://bucket/model.tar.gz \
+    python deploy_async_endpoint.py \
+        --model-uri s3://bucket/model.tar.gz \
+        --sns-topic-arn arn:aws:sns:ap-south-1:123456789012:my-topic \
         --s3-output-path s3://your-bucket/async-inference-results/
 """
 
@@ -75,31 +75,41 @@ def get_execution_role(region: str = DEFAULT_REGION) -> str:
     )
 
 
-def create_sns_topic(topic_name: str, region: str = DEFAULT_REGION) -> str:
+def verify_sns_topic(sns_topic_arn: str, region: str = DEFAULT_REGION) -> bool:
     """
-    Create SNS topic for async inference notifications.
+    Verify that the SNS topic exists and is accessible.
     
     Args:
-        topic_name: Name for the SNS topic
+        sns_topic_arn: ARN of the SNS topic
         region: AWS region
         
     Returns:
-        SNS topic ARN
+        True if topic exists and is accessible
+        
+    Raises:
+        ValueError if topic doesn't exist or is not accessible
     """
     sns_client = boto3.client('sns', region_name=region)
     
     try:
-        response = sns_client.create_topic(Name=topic_name)
-        topic_arn = response['TopicArn']
-        logger.info(f"✓ Created SNS topic: {topic_arn}")
-        return topic_arn
+        # Verify topic exists by getting its attributes
+        sns_client.get_topic_attributes(TopicArn=sns_topic_arn)
+        logger.info(f"✓ Verified SNS topic: {sns_topic_arn}")
+        return True
     except ClientError as e:
-        if e.response['Error']['Code'] == 'TopicAlreadyExists':
-            # Get existing topic ARN
-            response = sns_client.create_topic(Name=topic_name)
-            logger.info(f"✓ Using existing SNS topic: {response['TopicArn']}")
-            return response['TopicArn']
-        raise
+        error_code = e.response['Error']['Code']
+        if error_code == 'NotFound':
+            raise ValueError(
+                f"SNS topic not found: {sns_topic_arn}\n"
+                "Please ensure the topic exists and the ARN is correct."
+            )
+        elif error_code == 'AuthorizationError':
+            raise ValueError(
+                f"Access denied to SNS topic: {sns_topic_arn}\n"
+                "Please ensure your IAM role has permissions to access this topic."
+            )
+        else:
+            raise ValueError(f"Error accessing SNS topic: {e}")
 
 
 def ensure_s3_bucket_exists(bucket_name: str, region: str = DEFAULT_REGION) -> None:
@@ -230,11 +240,16 @@ def deploy_async_endpoint(
         
         logger.info(f"Async inference results will be saved to: {s3_output_path}")
         
-        # Setup SNS topic for notifications
+        # Verify SNS topic exists
         if not sns_topic_arn:
-            sns_topic_name = f'stygig-async-inference-notifications'
-            sns_topic_arn = create_sns_topic(sns_topic_name, region)
+            raise ValueError(
+                "SNS topic ARN is required. Please provide --sns-topic-arn parameter.\n"
+                "Example: --sns-topic-arn arn:aws:sns:ap-south-1:123456789012:your-topic-name\n"
+                "Contact your AWS administrator to get the SNS topic ARN."
+            )
         
+        # Verify the provided SNS topic is accessible
+        verify_sns_topic(sns_topic_arn, region)
         logger.info(f"Using SNS topic for notifications: {sns_topic_arn}")
         
         # Get project root
@@ -424,16 +439,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Deploy new async endpoint
-  python deploy_async_endpoint.py --model-uri s3://stygig-ml-s3/model-artifacts/model.tar.gz
+  # Deploy new async endpoint (SNS topic required)
+  python deploy_async_endpoint.py \
+      --model-uri s3://stygig-ml-s3/model-artifacts/model.tar.gz \
+      --sns-topic-arn arn:aws:sns:ap-south-1:123456789012:stygig-notifications
 
-  # Replace existing async endpoint
-  python deploy_async_endpoint.py --endpoint-name stygig-async-endpoint-20251115-120000 \
-      --model-uri s3://stygig-ml-s3/model.tar.gz
-
-  # Deploy with custom SNS topic
-  python deploy_async_endpoint.py --model-uri s3://bucket/model.tar.gz \
-      --sns-topic-arn arn:aws:sns:ap-south-1:123456789:my-topic
+  # Deploy with custom S3 output and endpoint name
+  python deploy_async_endpoint.py \
+      --model-uri s3://bucket/model.tar.gz \
+      --sns-topic-arn arn:aws:sns:ap-south-1:123456789012:my-topic \
+      --endpoint-name stygig-async-endpoint-20251115-120000 \
+      --s3-output-path s3://bucket/async-results/
         """
     )
     
@@ -476,8 +492,8 @@ Examples:
     parser.add_argument(
         '--sns-topic-arn',
         type=str,
-        default=None,
-        help='SNS topic ARN for notifications (auto-created if not provided)'
+        required=True,
+        help='SNS topic ARN for notifications (required - provided by your AWS administrator)'
     )
     parser.add_argument(
         '--max-concurrent-invocations',
