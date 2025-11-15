@@ -37,6 +37,7 @@ if src_dir.exists():
 from io import BytesIO
 from typing import Dict, List, Any, Tuple, Optional
 import base64
+from collections import Counter
 
 import numpy as np
 from PIL import Image
@@ -164,6 +165,7 @@ class FashionRecommendationInference:
             import open_clip
             from stygig.core.color_logic import ColorProcessor
             from stygig.core.gender_logic import GenderClassifier
+            from stygig.core.rules.category_compatibility import CATEGORY_COMPATIBILITY
             
             logger.info("Initializing models (optimized loading)...")
             start_time = __import__('time').time()
@@ -231,13 +233,15 @@ class FashionRecommendationInference:
             logger.error(f"Failed to initialize models: {e}")
             raise
     
-    def extract_image_features(self, image: Image.Image) -> Tuple[np.ndarray, str, str, float]:
+    def extract_image_features(self, image: Image.Image) -> Tuple[np.ndarray, Tuple[int, int, int], str, float]:
         """
         Extract features from an input image with robust error handling.
         
+        V4 UPDATE: Returns RGB tuple instead of color name
+        
         Returns:
             embedding: CLIP embedding vector
-            dominant_color: Dominant color name
+            dominant_color_rgb: Dominant color as RGB tuple (R, G, B)
             predicted_gender: Predicted gender
             gender_confidence: Gender prediction confidence
         """
@@ -252,7 +256,7 @@ class FashionRecommendationInference:
         if image.mode != 'RGB':
             image = image.convert('RGB')
         
-        dominant_color = 'unknown'
+        dominant_color_rgb = (128, 128, 128)  # Gray fallback as RGB tuple
         gender = 'unknown'
         gender_conf = 0.0
         
@@ -264,10 +268,10 @@ class FashionRecommendationInference:
             
             try:
                 colors = self.color_processor.extract_dominant_colors(temp_path)
-                dominant_color = colors[0][0] if colors and len(colors) > 0 else 'unknown'
+                dominant_color_rgb = colors[0][0] if colors and len(colors) > 0 else (128, 128, 128)
             except Exception as e:
                 logger.warning(f"Color extraction failed: {e}")
-                dominant_color = 'unknown'
+                dominant_color_rgb = (128, 128, 128)  # Gray fallback
             
             # Extract gender features with error handling
             try:
@@ -320,7 +324,7 @@ class FashionRecommendationInference:
             embedding = np.random.randn(embed_dim)
             embedding = embedding / np.linalg.norm(embedding)
         
-        return embedding.astype(np.float32), dominant_color, gender, float(gender_conf)
+        return embedding.astype(np.float32), dominant_color_rgb, gender, float(gender_conf)
     
     def faiss_similarity_search(self, query_embedding: np.ndarray, k: int = 50) -> List[Tuple[int, float]]:
         """
@@ -367,45 +371,93 @@ class FashionRecommendationInference:
         
         return items_with_scores
     
-    def apply_enterprise_rule_based_scoring(self, query_color: str, query_gender: str, 
+    def apply_enterprise_rule_based_scoring(self, query_color: Tuple[int, int, int], query_gender: str, 
                                           candidates: List[Tuple[Dict, float]], 
                                           items_per_category: int = 2) -> List[Dict]:
         """
-        Apply enterprise per-category rule-based scoring with configurable limits.
+        Apply outfit completion logic: recommend complementary items from different categories.
+        
+        V4 UPDATES:
+        - query_color is now an RGB tuple (no longer a string name)
+        - Uses top-5 voting for category inference (more robust)
+        - Applies category compatibility boost from CATEGORY_COMPATIBILITY rules
+        
+        CRITICAL CHANGE: This method now implements outfit completion (shirt -> pants)
+        instead of similarity matching (shirt -> shirt). It excludes same-category items
+        and returns the best complementary item from each different category.
         
         Args:
-            query_color: Dominant color of query image
+            query_color: Dominant color of query image as RGB tuple (R, G, B)
             query_gender: Predicted gender of query image
             candidates: List of (item_dict, similarity_score) tuples
-            items_per_category: Number of items to return per category
+            items_per_category: Number of items to return per category (NOTE: Now returns 1 per category for outfit completion)
         
         Returns:
-            List of recommendation dictionaries with per-category limits applied
+            List of recommendation dictionaries with complementary items from different categories
         """
         compatible_genders = self._get_compatible_genders(query_gender)
         
-        # Group candidates by category
+        # --- TASK 2 (V4): Top-5 Category Voting for Robustness ---
+        # Instead of guessing the category from the single top-1 result,
+        # we vote across the top-5 most similar items for better accuracy.
+        query_category = None
+        if candidates and len(candidates) > 0:
+            # Get categories from the top 5 most similar items
+            top_5_categories = [
+                cand[0].get('category') 
+                for cand in candidates[:5] 
+                if cand[0].get('category')
+            ]
+            if top_5_categories:
+                # Vote for the most common category
+                category_votes = Counter(top_5_categories)
+                query_category = category_votes.most_common(1)[0][0]
+                logger.info(f"🔍 Inferred query category by vote: {query_category} (from {category_votes})")
+            else:
+                logger.warning("Could not infer query category, top candidates have no category info.")
+        else:
+            logger.warning("Could not infer query category, no FAISS candidates found.")
+        
+        # STEP 2: Group candidates by category with filtering
         category_candidates = {}
         
         for item, similarity_score in candidates:
-            # Skip items with incompatible genders
+            # Filter 1: Skip items with incompatible genders
             if item['gender'] not in compatible_genders:
                 continue
             
+            # Filter 2: OUTFIT COMPLETION - Skip items from the same category as input
+            # This is the KEY FIX: prevents shirt -> shirt recommendations
             category = item['category']
+            if query_category and category == query_category:
+                logger.debug(f"⏭️  Skipping same-category item: {category}")
+                continue
+            
+            # Initialize category list if needed
             if category not in category_candidates:
                 category_candidates[category] = []
             
-            # Calculate color harmony score
+            # Calculate color harmony score (V4: using RGB tuples)
+            item_color_rgb = item.get('color_rgb', (128, 128, 128))  # Gray fallback
             color_score = self.color_processor.calculate_color_harmony(
-                query_color, item.get('color', 'unknown')
+                query_color, item_color_rgb
             )
             
             # Calculate gender compatibility score
             gender_score = 1.0 if item['gender'] == query_gender else 0.75
             
             # Calculate final composite score
+            # Same formula, but now applied only to complementary items
             final_score = (0.4 * similarity_score + 0.4 * color_score + 0.2 * gender_score)
+            
+            # --- TASK 3 (V4): Category Compatibility Boost ---
+            # Apply 15% boost for natural pairings (e.g., shirt+pants, dress+heels)
+            from stygig.core.rules.category_compatibility import CATEGORY_COMPATIBILITY
+            if query_category and query_category in CATEGORY_COMPATIBILITY:
+                compatible_cats = CATEGORY_COMPATIBILITY[query_category].get('compatible', [])
+                if category in compatible_cats:
+                    final_score *= 1.15
+                    logger.debug(f"  Applied 1.15x boost to {category} (compatible with {query_category})")
             
             category_candidates[category].append({
                 'id': item.get('id', 'unknown'),
@@ -420,27 +472,32 @@ class FashionRecommendationInference:
                 'match_reason': self._generate_match_reason(color_score, 1.0, gender_score, query_color, item.get('color'))
             })
         
-        # Select top items per category
+        # STEP 3: Select the BEST item from each category (outfit completion)
+        # OLD LOGIC: Took top N items per category (allowed multiple shirts)
+        # NEW LOGIC: Takes only 1 best item per category for diversity
         final_recommendations = []
-        rank = 1
         
-        # Sort categories by name for consistent ordering
-        for category in sorted(category_candidates.keys()):
-            items = category_candidates[category]
+        for category, items in category_candidates.items():
+            if not items:
+                continue
             
-            # Sort by composite score and take top N
-            items_sorted = sorted(items, key=lambda x: x['score'], reverse=True)
-            top_items = items_sorted[:items_per_category]
-            
-            for item in top_items:
-                item['rank'] = rank
-                final_recommendations.append(item)
-                rank += 1
+            # Sort items in this category by score and take only the best one
+            best_item_in_category = sorted(items, key=lambda x: x['score'], reverse=True)[0]
+            final_recommendations.append(best_item_in_category)
         
-        # Sort final results by score
+        # STEP 4: Sort all recommendations by final score
         final_recommendations.sort(key=lambda x: x['score'], reverse=True)
         
-        logger.info(f"✅ Enterprise scoring: {len(final_recommendations)} recommendations from {len(category_candidates)} categories")
+        # STEP 5: Re-assign rank based on final sorted order
+        for i, item in enumerate(final_recommendations):
+            item['rank'] = i + 1
+        
+        # STEP 6: Respect max_total_recommendations config
+        if self.enterprise_config:
+            n_recommendations = self.enterprise_config.max_total_recommendations
+            final_recommendations = final_recommendations[:n_recommendations]
+        
+        logger.info(f"👔 Outfit completion: {len(final_recommendations)} complementary items from {len(category_candidates)} categories (excluded: {query_category})")
         
         return final_recommendations
     
@@ -560,7 +617,13 @@ class FashionRecommendationInference:
                 logger.info("📊 Standard inference: 2 items per category")
             
             # Extract features from query image
-            embedding, color, gender, gender_conf = self.extract_image_features(image)
+            embedding, color_rgb, gender, gender_conf = self.extract_image_features(image)
+            
+            # TASK 1: Gender Fallback (Robustness)
+            # Ensure we never process "unknown" gender, which breaks gender-compatibility rules
+            if gender == "unknown":
+                logger.info("Input gender is 'unknown'. Defaulting to 'unisex' for broader recommendations.")
+                gender = "unisex"
             
             # Perform FAISS similarity search with enterprise search K
             faiss_results = self.faiss_similarity_search(embedding, k=search_k)
@@ -571,17 +634,21 @@ class FashionRecommendationInference:
             # Apply enterprise per-category rule-based scoring
             if self.enterprise_config:
                 recommendations = self.apply_enterprise_rule_based_scoring(
-                    color, gender, candidates, items_per_category
+                    color_rgb, gender, candidates, items_per_category
                 )
             else:
                 # Fallback to original method
                 recommendations = self.apply_rule_based_scoring(
-                    color, gender, candidates, n_recommendations
+                    color_rgb, gender, candidates, n_recommendations
                 )
+            
+            # Convert RGB tuple to readable format for response
+            color_display = f"RGB{color_rgb}"
             
             return {
                 'query_item': {
-                    'dominant_color': color,
+                    'dominant_color': color_display,
+                    'dominant_color_rgb': color_rgb,
                     'predicted_gender': gender,
                     'gender_confidence': round(float(gender_conf), 4)
                 },
