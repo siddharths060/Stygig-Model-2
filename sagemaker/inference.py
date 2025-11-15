@@ -417,7 +417,7 @@ class FashionRecommendationInference:
                 'similarity_score': round(similarity_score, 4),
                 'color_harmony_score': round(color_score, 4),
                 'gender_compatibility_score': round(gender_score, 4),
-                'match_reason': self._generate_match_reason(color_score, gender_score, query_color, item.get('color'))
+                'match_reason': self._generate_match_reason(color_score, 1.0, gender_score, query_color, item.get('color'))
             })
         
         # Select top items per category
