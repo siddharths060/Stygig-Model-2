@@ -318,14 +318,14 @@ def display_results(result: dict, input_image_path: str = None) -> None:
         logger.info("")
         
         for i, rec in enumerate(recommendations, 1):
-            logger.info(f"{i}. {rec['item_id']}")
+            logger.info(f"{i}. {rec.get('id', rec.get('item_id', 'Unknown'))}")
             logger.info(f"   Category: {rec['category']}")
-            logger.info(f"   Gender: {rec['gender']}")
+            logger.info(f"   Gender: {rec.get('gender', 'Unknown')}")
             logger.info(f"   Overall Score: {rec['score']:.4f}")
-            logger.info(f"   Color Match: {rec['color_score']:.4f}")
-            logger.info(f"   Category Match: {rec['category_score']:.4f}")
-            logger.info(f"   Gender Match: {rec['gender_score']:.4f}")
-            logger.info(f"   Colors: {', '.join(rec.get('colors', []))}")
+            logger.info(f"   Similarity: {rec.get('similarity_score', 0):.4f}")
+            logger.info(f"   Color Harmony: {rec.get('color_harmony_score', 0):.4f}")
+            logger.info(f"   Gender Compatibility: {rec.get('gender_compatibility_score', 0):.4f}")
+            logger.info(f"   Match Reason: {rec.get('match_reason', 'N/A')}")
             logger.info("")
         
         # Display metadata
