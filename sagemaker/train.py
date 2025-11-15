@@ -666,11 +666,41 @@ def save_model_artifacts(args, metadata: Dict, embeddings_dict: Dict,
         json.dump(config, f, indent=2)
     
     # Copy source code for inference
-    source_dir = Path('/opt/ml/code/stygig')
+    source_dir = Path('/opt/ml/code/src/stygig')
     target_dir = model_dir / 'stygig'
     
     if source_dir.exists():
         shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+        logger.info(f"✅ Copied stygig source to {target_dir}")
+    
+    # Copy config directory for inference
+    config_source = Path('/opt/ml/code/config')
+    config_target = model_dir / 'config'
+    if config_source.exists():
+        shutil.copytree(config_source, config_target, dirs_exist_ok=True)
+        logger.info(f"✅ Copied config to {config_target}")
+    
+    # VERIFICATION CHECK: Ensure critical directories exist in model artifacts
+    logger.info("Running verification checks on model artifacts...")
+    required_dirs = {
+        'stygig': model_dir / 'stygig',
+        'config': model_dir / 'config'
+    }
+    
+    missing_dirs = []
+    for name, path in required_dirs.items():
+        if not path.exists():
+            missing_dirs.append(name)
+            logger.error(f"❌ Verification failed: {name} directory not found at {path}")
+        else:
+            logger.info(f"✓ Verified: {name} directory exists at {path}")
+    
+    if missing_dirs:
+        error_msg = f"Verification failed: Missing required directories in model.tar.gz: {', '.join(missing_dirs)}. "
+        error_msg += "This will cause inference to fail. Check training script paths."
+        raise FileNotFoundError(error_msg)
+    
+    logger.info("✅ All verification checks passed")
     
     # CRITICAL FIX: Copy inference.py to model artifacts (code/ directory)
     # SageMaker expects inference script in model.tar.gz for custom handlers
