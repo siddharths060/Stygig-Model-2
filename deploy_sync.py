@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 def deploy_realtime_endpoint(
     model_uri,
     endpoint_name,
-    instance_type='ml.m5.large',
+    instance_type='ml.g4dn.xlarge',  # GPU required for V4 CLIP inference
     instance_count=1
 ):
     """
@@ -212,8 +212,8 @@ Instance Type Recommendations:
     parser.add_argument(
         '--instance-type',
         type=str,
-        default='ml.m5.large',
-        help='EC2 instance type for hosting (default: ml.m5.large)'
+        default='ml.g4dn.xlarge',
+        help='EC2 instance type for hosting (default: ml.g4dn.xlarge, GPU required for V4)'
     )
     
     parser.add_argument(

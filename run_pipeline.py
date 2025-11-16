@@ -193,9 +193,10 @@ class V4PipelineRunner:
             
             # Deploy to real-time endpoint
             # CRITICAL: No AsyncInferenceConfig - this is synchronous
+            # V4 REQUIRES GPU: CLIP ViT-B/32 needs GPU for <300ms latency
             predictor = estimator.deploy(
                 initial_instance_count=1,
-                instance_type='ml.m5.xlarge',
+                instance_type='ml.g4dn.xlarge',  # GPU required for V4 CLIP inference
                 endpoint_name=endpoint_name,
                 serializer=IdentitySerializer(content_type='application/x-image'),
                 deserializer=JSONDeserializer(),
