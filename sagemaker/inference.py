@@ -39,6 +39,7 @@ src_dir = project_root / 'src'
 if src_dir.exists():
     sys.path.insert(0, str(src_dir))
 from io import BytesIO
+import torch
 from typing import Dict, List, Any, Tuple, Optional
 import base64
 from collections import Counter
@@ -186,7 +187,7 @@ class FashionRecommendationInference:
             start_time = __import__('time').time()
             
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            logger.info(f"Using device: {self.device}")
+            logger.info(f"Inference device: {self.device}")
             
             # CPU optimization for ml.c5.large
             if self.device.type == 'cpu':
@@ -372,23 +373,29 @@ class FashionRecommendationInference:
     def map_faiss_indices_to_items(self, faiss_results: List[Tuple[int, float]]) -> List[Tuple[Dict, float]]:
         """
         Map FAISS index results back to item metadata.
+        
+        Args:
+            faiss_results: List of (index, score) tuples from FAISS
+            
+        Returns:
+            List of (item_dict, score) tuples
         """
         items_with_scores = []
         
-        # Create a flat list of all items with their global index
-        global_index = 0
-        index_to_item = {}
-        
-        for category, items in self.metadata.items():
-            for item in items:
-                index_to_item[global_index] = item
-                global_index += 1
-        
-        # Map FAISS results to items
+        # self.metadata is a flat list, and FAISS indices correspond directly to positions in this list
         for faiss_idx, similarity in faiss_results:
-            if faiss_idx in index_to_item:
-                item = index_to_item[faiss_idx]
-                items_with_scores.append((item, similarity))
+            try:
+                idx = int(faiss_idx)
+            except Exception:
+                logger.debug(f"Could not cast FAISS index to int: {faiss_idx}")
+                continue
+
+            # Ensure index is within bounds
+            if 0 <= idx < len(self.metadata):
+                item = self.metadata[idx]
+                items_with_scores.append((item, float(similarity)))
+            else:
+                logger.warning(f"FAISS index {idx} out of bounds for metadata of size {len(self.metadata)}")
         
         return items_with_scores
     
@@ -417,8 +424,7 @@ class FashionRecommendationInference:
         Returns:
             List of recommendation dictionaries with complementary items from different categories
         """
-        # Category Exclusion Groups: Prevent visual ambiguity leakage
-        # If input is any kind of top, block ALL kinds of tops
+        # CATEGORY EXCLUSION GROUPS: If input is X, exclude everything in list Y
         CATEGORY_EXCLUSION_GROUPS = {
             # Tops Group: Block all upperwear if input is any upperwear
             'upperwear_shirt': ['upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket'],
@@ -433,13 +439,13 @@ class FashionRecommendationInference:
             'bottomwear_jeans': ['bottomwear_pants', 'bottomwear_jeans', 'bottomwear_trousers', 'bottomwear_skirt'],
             'bottomwear_skirt': ['bottomwear_pants', 'bottomwear_shorts', 'bottomwear_jeans', 'bottomwear_skirt'],
             
-            # Full Body Group: Dresses are their own category, usually exclude themselves
+            # Full Body Group: Dresses are their own category
             'one-piece_dress': ['one-piece_dress', 'one-piece_jumpsuit'],
             'one-piece_jumpsuit': ['one-piece_dress', 'one-piece_jumpsuit'],
         }
-        
+
         compatible_genders = self._get_compatible_genders(query_gender)
-        
+
         # --- TASK 2 (V4): Top-5 Category Voting for Robustness ---
         # Instead of guessing the category from the single top-1 result,
         # we vote across the top-5 most similar items for better accuracy.
@@ -460,23 +466,23 @@ class FashionRecommendationInference:
                 logger.warning("Could not infer query category, top candidates have no category info.")
         else:
             logger.warning("Could not infer query category, no FAISS candidates found.")
-        
+
         # STEP 2: Group candidates by category with filtering
         category_candidates = {}
-        
+
         # Determine what categories to exclude based on the inferred query category
         excluded_categories = {query_category} if query_category else set()
-        
+
         if query_category and query_category in CATEGORY_EXCLUSION_GROUPS:
             # Add all related categories to the exclusion set
             excluded_categories.update(CATEGORY_EXCLUSION_GROUPS[query_category])
             logger.info(f"🚫 Excluding category group for '{query_category}': {excluded_categories}")
-        
+
         for item, similarity_score in candidates:
             # Filter 1: Skip items with incompatible genders
             if item['gender'] not in compatible_genders:
                 continue
-            
+
             # Filter 2: CATEGORY EXCLUSION GROUPS - Prevent visual ambiguity leakage
             # This robustly blocks all visually similar categories (e.g., shirt+tshirt)
             # even if CLIP mis-classifies the input
@@ -484,24 +490,24 @@ class FashionRecommendationInference:
             if query_category and category in excluded_categories:
                 logger.debug(f"⏭️ Skipping '{category}' (Group Exclusion for '{query_category}')")
                 continue
-            
+
             # Initialize category list if needed
             if category not in category_candidates:
                 category_candidates[category] = []
-            
+
             # Calculate color harmony score (V4: using RGB tuples)
             item_color_rgb = item.get('color_rgb', (128, 128, 128))  # Gray fallback
             color_score = self.color_processor.calculate_color_harmony(
                 query_color, item_color_rgb
             )
-            
+
             # Calculate gender compatibility score
             gender_score = 1.0 if item['gender'] == query_gender else 0.75
-            
+
             # Calculate final composite score
             # Same formula, but now applied only to complementary items
             final_score = (0.4 * similarity_score + 0.4 * color_score + 0.2 * gender_score)
-            
+
             # --- TASK 3 (V4): Category Compatibility Boost ---
             # Apply 15% boost for natural pairings (e.g., shirt+pants, dress+heels)
             from stygig.core.rules.category_compatibility import CATEGORY_COMPATIBILITY
@@ -510,7 +516,7 @@ class FashionRecommendationInference:
                 if category in compatible_cats:
                     final_score *= 1.15
                     logger.debug(f"  Applied 1.15x boost to {category} (compatible with {query_category})")
-            
+
             category_candidates[category].append({
                 'id': item.get('id', 'unknown'),
                 'category': category,
@@ -523,34 +529,41 @@ class FashionRecommendationInference:
                 'gender_compatibility_score': round(gender_score, 4),
                 'match_reason': self._generate_match_reason(color_score, 1.0, gender_score, query_color, item.get('color'))
             })
-        
+
         # STEP 3: Select the BEST item from each category (outfit completion)
         # OLD LOGIC: Took top N items per category (allowed multiple shirts)
         # NEW LOGIC: Takes only 1 best item per category for diversity
         final_recommendations = []
-        
+
         for category, items in category_candidates.items():
             if not items:
                 continue
-            
+
             # Sort items in this category by score and take only the best one
             best_item_in_category = sorted(items, key=lambda x: x['score'], reverse=True)[0]
             final_recommendations.append(best_item_in_category)
-        
+
         # STEP 4: Sort all recommendations by final score
         final_recommendations.sort(key=lambda x: x['score'], reverse=True)
-        
+
         # STEP 5: Re-assign rank based on final sorted order
         for i, item in enumerate(final_recommendations):
             item['rank'] = i + 1
-        
+
         # STEP 6: Respect max_total_recommendations config
         if self.enterprise_config:
             n_recommendations = self.enterprise_config.max_total_recommendations
             final_recommendations = final_recommendations[:n_recommendations]
-        
+
         logger.info(f"👔 Outfit completion: {len(final_recommendations)} complementary items from {len(category_candidates)} categories (excluded: {query_category})")
-        
+
+        # Fallback: if no complementary recommendations found (possible strict exclusions),
+        # fall back to standard scoring to ensure we return something useful.
+        if not final_recommendations:
+            logger.warning("No outfit-completion recommendations found after exclusions — falling back to rule-based scoring")
+            fallback_n = self.enterprise_config.max_total_recommendations if self.enterprise_config else 5
+            return self.apply_rule_based_scoring(query_color, query_gender, candidates, n_recommendations=fallback_n)
+
         return final_recommendations
     
     def apply_rule_based_scoring(self, query_color: str, query_gender: str, 
@@ -687,6 +700,11 @@ class FashionRecommendationInference:
             
             # Map FAISS results to item metadata
             candidates = self.map_faiss_indices_to_items(faiss_results)
+            logger.info(f"🧭 Dataset items: {len(self.metadata)}, FAISS vectors: {getattr(self.faiss_index, 'ntotal', 'unknown')}")
+            logger.info(f"🔎 FAISS results: {len(faiss_results)}, Mapped candidates: {len(candidates)}")
+            if len(candidates) > 0:
+                top_cats = [c[0].get('category') for c in candidates[:5]]
+                logger.info(f"Top candidate categories: {top_cats}")
             
             # Apply enterprise per-category rule-based scoring
             if self.enterprise_config:

@@ -187,7 +187,8 @@ class V4PipelineRunner:
             self.resources['endpoint_name'] = endpoint_name
             
             logger.info(f"Endpoint name: {endpoint_name}")
-            logger.info(f"Instance type: ml.m5.xlarge")
+            logger.info(f"Instance type: ml.g4dn.xlarge")
+            # V4 SYNC REQUIRES GPU
             logger.info("Mode: REAL-TIME (synchronous)")
             logger.info("Deploying... (this takes 5-10 minutes)")
             
@@ -196,7 +197,7 @@ class V4PipelineRunner:
             # WARNING: ml.c5.large (CPU) will have 450-650ms latency
             predictor = estimator.deploy(
                 initial_instance_count=1,
-                instance_type='ml.c5.large',  # CPU instance - expect 450-650ms latency
+                instance_type='ml.g4dn.xlarge',  # V4 SYNC REQUIRES GPU
                 endpoint_name=endpoint_name,
                 serializer=IdentitySerializer(content_type='application/x-image'),
                 deserializer=JSONDeserializer(),

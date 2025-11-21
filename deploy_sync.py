@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 def deploy_realtime_endpoint(
     model_uri,
     endpoint_name,
-    instance_type='ml.c5.large',  # CPU instance - expect 450-650ms latency
+    instance_type='ml.g4dn.xlarge',  # V4 SYNC REQUIRES GPU
     instance_count=1
 ):
     """
@@ -212,8 +212,8 @@ Instance Type Recommendations:
     parser.add_argument(
         '--instance-type',
         type=str,
-        default='ml.c5.large',
-        help='EC2 instance type for hosting (default: ml.c5.large, CPU - expect 450-650ms latency)'
+        default='ml.g4dn.xlarge',
+        help='Instance type for deployment. V4 SYNC RECOMMENDS ml.g4dn.xlarge'
     )
     
     parser.add_argument(
