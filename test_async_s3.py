@@ -17,7 +17,7 @@ def test_async_with_s3():
     s3 = boto3.client('s3', region_name='ap-south-1')
     
     bucket = 'sagemaker-ap-south-1-732414292744'
-    endpoint_name = 'stygig-async-v4'
+    endpoint_name = 'stygig-async-v4-1'
     
     # Create test payload with S3 URI
     payload = {
