@@ -28,6 +28,10 @@ import pickle
 import logging
 from pathlib import Path
 
+# AWS imports for S3 support
+import boto3
+from botocore.exceptions import ClientError
+
 # Add src directory to Python path for stygig package imports
 current_dir = Path(__file__).resolve().parent
 project_root = current_dir.parent
@@ -728,6 +732,45 @@ def model_fn(model_dir: str):
         logger.error(f"Failed to load model: {e}")
         raise
 
+def load_image_from_s3(s3_uri: str):
+    """
+    Load image from S3 URI.
+    
+    Args:
+        s3_uri: S3 URI in format s3://bucket/key
+        
+    Returns:
+        PIL Image object
+    """
+    try:
+        # Parse S3 URI
+        if not s3_uri.startswith('s3://'):
+            raise ValueError(f"Invalid S3 URI: {s3_uri}")
+        
+        # Remove s3:// prefix and split bucket/key
+        path = s3_uri[5:]  # Remove 's3://'
+        bucket, key = path.split('/', 1)
+        
+        # Initialize S3 client
+        s3_client = boto3.client('s3')
+        
+        # Download image data
+        response = s3_client.get_object(Bucket=bucket, Key=key)
+        image_data = response['Body'].read()
+        
+        # Convert to PIL Image
+        image = Image.open(BytesIO(image_data)).convert('RGB')
+        logger.info(f"✅ Successfully loaded image from {s3_uri}: {image.size}")
+        
+        return image
+        
+    except ClientError as e:
+        logger.error(f"S3 client error loading {s3_uri}: {e}")
+        raise ValueError(f"Failed to load image from S3: {e}")
+    except Exception as e:
+        logger.error(f"Error loading image from {s3_uri}: {e}")
+        raise ValueError(f"Failed to parse S3 image: {e}")
+
 def input_fn(request_body: str, request_content_type: str):
     """
     Parse input data from HTTP request.
@@ -745,11 +788,16 @@ def input_fn(request_body: str, request_content_type: str):
                 # Base64 encoded image
                 image_data = base64.b64decode(data['image'])
                 image = Image.open(BytesIO(image_data)).convert('RGB')
+            elif 'image_s3_uri' in data:
+                # S3 URI - download image from S3
+                s3_uri = data['image_s3_uri']
+                logger.info(f"Loading image from S3: {s3_uri}")
+                image = load_image_from_s3(s3_uri)
             else:
-                raise ValueError("No 'image' field found in JSON request")
+                raise ValueError("No 'image' or 'image_s3_uri' field found in JSON request")
             
-            # Extract other parameters
-            n_recommendations = data.get('n_recommendations', 5)
+            # Extract other parameters (support both names for compatibility)
+            n_recommendations = data.get('n_recommendations', data.get('top_k', 5))
             
         elif request_content_type.startswith('image/'):
             # Direct image upload
