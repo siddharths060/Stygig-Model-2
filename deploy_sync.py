@@ -128,20 +128,28 @@ def deploy_realtime_endpoint(
         logger.info("✅ DEPLOYMENT SUCCESSFUL")
         logger.info("="*70)
         logger.info(f"Endpoint Name: {endpoint_name}")
-        logger.info(f"Endpoint ARN: {predictor.endpoint_context().endpoint_arn}")
         logger.info(f"Instance Type: {instance_type}")
         logger.info(f"Instance Count: {instance_count}")
         logger.info("Status: InService")
         logger.info("Mode: Real-time (synchronous)")
-        
-        # Get endpoint details
+
+        # Get endpoint details and ARN using SageMaker describe_endpoint (more portable)
         sm_client = boto3.client('sagemaker', region_name=region)
         endpoint_desc = sm_client.describe_endpoint(EndpointName=endpoint_name)
-        
+        endpoint_arn = endpoint_desc.get('EndpointArn') or endpoint_desc.get('EndpointArn'.upper())
+
+        if endpoint_arn:
+            logger.info(f"Endpoint ARN: {endpoint_arn}")
+        else:
+            # Fallback: predictor may expose endpoint_name attribute
+            endpoint_name_fallback = getattr(predictor, 'endpoint_name', None) or getattr(predictor, 'endpoint', None)
+            logger.warning("Could not read EndpointArn from describe_endpoint; using predictor endpoint name as fallback")
+            logger.info(f"Endpoint Identifier: {endpoint_name_fallback}")
+
         logger.info("\nEndpoint Details:")
-        logger.info(f"  Creation Time: {endpoint_desc['CreationTime']}")
-        logger.info(f"  Last Modified: {endpoint_desc['LastModifiedTime']}")
-        logger.info(f"  Endpoint Config: {endpoint_desc['EndpointConfigName']}")
+        logger.info(f"  Creation Time: {endpoint_desc.get('CreationTime')}")
+        logger.info(f"  Last Modified: {endpoint_desc.get('LastModifiedTime')}")
+        logger.info(f"  Endpoint Config: {endpoint_desc.get('EndpointConfigName')}")
         
         logger.info("\nNext Steps:")
         logger.info("  1. Test the endpoint:")
