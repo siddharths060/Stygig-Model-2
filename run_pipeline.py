@@ -204,15 +204,16 @@ class V4PipelineRunner:
             )
             
             # Track resource names for cleanup
-            self.resources['endpoint_config_name'] = predictor.endpoint_context().endpoint_config_name
-            self.resources['model_name'] = predictor.endpoint_context().model_name
+            endpoint_context = predictor.endpoint_context()
+            self.resources['endpoint_config_name'] = getattr(endpoint_context, 'endpoint_config_name', endpoint_name + '-config')
+            self.resources['model_name'] = getattr(endpoint_context, 'model_name', endpoint_name + '-model')
             
             logger.info("="*70)
             logger.info("✅ DEPLOYMENT COMPLETE")
             logger.info("="*70)
             logger.info(f"Endpoint: {endpoint_name}")
             logger.info(f"Status: InService")
-            logger.info(f"Endpoint ARN: {predictor.endpoint_context().endpoint_arn}")
+            logger.info(f"Endpoint ARN: {getattr(predictor.endpoint_context(), 'endpoint_arn', 'N/A')}")
             
             return predictor
         

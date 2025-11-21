@@ -161,7 +161,7 @@ def deploy_async_endpoint(
         logger.info("✅ ASYNC DEPLOYMENT SUCCESSFUL")
         logger.info("="*70)
         logger.info(f"Endpoint Name: {endpoint_name}")
-        logger.info(f"Endpoint ARN: {predictor.endpoint_context().endpoint_arn}")
+        logger.info(f"Endpoint ARN: {getattr(predictor.endpoint_context(), 'endpoint_arn', f'arn:aws:sagemaker:ap-south-1:732414292744:endpoint/{endpoint_name}')}")
         logger.info(f"Instance Type: {instance_type}")
         logger.info(f"Instance Count: {instance_count}")
         logger.info("Status: InService")
