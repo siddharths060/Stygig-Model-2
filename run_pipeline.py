@@ -103,17 +103,17 @@ class V4PipelineRunner:
         try:
             # Define hyperparameters for V4 training
             hyperparameters = {
-                'epochs': 10,
-                'batch_size': 32,
-                'learning_rate': 0.001,
-                'clip_model': 'ViT-B-32',
-                'embed_dim': 512,
-                'n_clusters': 3,
-                'faiss_index_type': 'IndexFlatIP'
+                'batch-size': 32,
+                'clip-model': 'ViT-B-32',
+                'clip-pretrained': 'openai',
+                'n-clusters': 3,
+                'faiss-index-type': 'IndexFlatIP',
+                'max-items-per-category': 1000  # Limit for faster CPU training
             }
             
             logger.info(f"Training data: {training_data_s3_uri}")
             logger.info(f"Hyperparameters: {json.dumps(hyperparameters, indent=2)}")
+            logger.info("Note: Training limited to 1000 items per category for CPU optimization")
             
             # Create PyTorch Estimator for V4
             estimator = PyTorch(
