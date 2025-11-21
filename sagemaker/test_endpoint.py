@@ -280,15 +280,29 @@ def test_endpoint(endpoint_name, image_path=None, s3_uri=None, top_k=5, save_vis
         logger.info(f"\n🎯 TOP {len(recommendations)} RECOMMENDATIONS:\n")
         
         for i, rec in enumerate(recommendations, 1):
-            logger.info(f"{i}. {rec['item_id']}")
-            logger.info(f"   Category: {rec['category']}")
-            logger.info(f"   Gender: {rec['gender']}")
-            logger.info(f"   Score: {rec['score']:.4f}")
-            logger.info(f"   Color Match: {rec['color_score']:.4f}")
-            logger.info(f"   Category Match: {rec['category_score']:.4f}")
-            logger.info(f"   Gender Match: {rec['gender_score']:.4f}")
-            logger.info(f"   Colors: {', '.join(rec.get('colors', []))}")
+            # Be defensive about keys in the recommendation dict — fallback to common alternatives
+            item_id = rec.get('item_id') or rec.get('id') or rec.get('path') or rec.get('image_path') or 'unknown'
+            category = rec.get('category', 'Unknown')
+            gender = rec.get('gender', 'Unknown')
+            score = float(rec.get('score', 0.0))
+            color_score = float(rec.get('color_score', rec.get('color_harmony_score', rec.get('score_components', {}).get('color_harmony', 0.0))))
+            category_score = float(rec.get('category_score', rec.get('score_components', {}).get('category_compatibility', 0.0)))
+            gender_score = float(rec.get('gender_score', rec.get('gender_compatibility_score', rec.get('score_components', {}).get('gender_compatibility', 0.0))))
+            colors = rec.get('colors') or ([rec.get('color')] if rec.get('color') else [])
+
+            # Print a stable summary for each recommendation
+            logger.info(f"{i}. {item_id}")
+            logger.info(f"   Category: {category}")
+            logger.info(f"   Gender: {gender}")
+            logger.info(f"   Score: {score:.4f}")
+            logger.info(f"   Color Match: {color_score:.4f}")
+            logger.info(f"   Category Match: {category_score:.4f}")
+            logger.info(f"   Gender Match: {gender_score:.4f}")
+            logger.info(f"   Colors: {', '.join(colors)}")
             logger.info("")
+
+            # Debug: log raw recommendation dict so we can see unexpected schemas
+            logger.debug(f"Raw recommendation {i}: {json.dumps(rec)}")
         
         # Display metadata
         metadata = result.get('metadata', {})

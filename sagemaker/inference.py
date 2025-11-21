@@ -47,6 +47,7 @@ from collections import Counter
 import numpy as np
 from PIL import Image
 import faiss
+import time
 
 # Add the stygig module to the path
 sys.path.append('/opt/ml/model')
@@ -670,6 +671,7 @@ class FashionRecommendationInference:
             Dictionary with query item info and recommendations
         """
         try:
+            start_time = time.time()
             # Use enterprise config if available
             if self.enterprise_config:
                 n_recommendations = self.enterprise_config.max_total_recommendations
@@ -720,6 +722,31 @@ class FashionRecommendationInference:
             # Convert RGB tuple to readable format for response
             color_display = f"RGB{color_rgb}"
             
+            # Normalize recommendations to a stable schema expected by test utilities
+            normalized_recs = []
+            for rec in recommendations:
+                item_id = rec.get('id') or rec.get('item_id') or rec.get('path') or 'unknown'
+                color_score = rec.get('color_harmony_score', None)
+                if color_score is None:
+                    color_score = rec.get('color_score') or rec.get('score_components', {}).get('color_harmony', 0.0)
+                category_score = rec.get('category_score') or rec.get('score_components', {}).get('category_compatibility', 1.0)
+                gender_score = rec.get('gender_compatibility_score') or rec.get('score_components', {}).get('gender_compatibility', 1.0)
+                colors = rec.get('colors') or ([rec.get('color')] if rec.get('color') else [])
+
+                normalized_recs.append({
+                    'item_id': item_id,
+                    'category': rec.get('category'),
+                    'gender': rec.get('gender'),
+                    'score': float(rec.get('score', 0.0)),
+                    'color_score': float(color_score) if color_score is not None else 0.0,
+                    'category_score': float(category_score),
+                    'gender_score': float(gender_score),
+                    'colors': colors,
+                    'path': rec.get('path', '')
+                })
+
+            processing_time_ms = (time.time() - start_time) * 1000.0
+
             return {
                 'query_item': {
                     'dominant_color': color_display,
@@ -727,9 +754,14 @@ class FashionRecommendationInference:
                     'predicted_gender': gender,
                     'gender_confidence': round(float(gender_conf), 4)
                 },
-                'recommendations': recommendations,
+                'recommendations': normalized_recs,
                 'total_candidates': len(candidates),
                 'faiss_search_results': len(faiss_results),
+                'metadata': {
+                    'processing_time_ms': processing_time_ms,
+                    'total_items': len(self.metadata),
+                    'model_version': self.config.get('model_version', 'v4')
+                },
                 'enterprise_config': {
                     'items_per_category': items_per_category,
                     'max_total_recommendations': n_recommendations
