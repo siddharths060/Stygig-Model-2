@@ -121,7 +121,7 @@ class V4PipelineRunner:
                 source_dir='sagemaker',
                 dependencies=['src', 'config'],
                 role=self.role,
-                instance_type='ml.p3.2xlarge',  # GPU for faster training
+                instance_type='ml.m5.xlarge',  # CPU training (GPU not available in ap-south-1)
                 instance_count=1,
                 framework_version='2.0.0',
                 py_version='py310',
@@ -140,7 +140,7 @@ class V4PipelineRunner:
             self.resources['training_job_name'] = estimator._current_job_name
             
             logger.info(f"Starting training job: {estimator._current_job_name}")
-            logger.info("This will take approximately 15-30 minutes...")
+            logger.info("Training on CPU instance (ml.m5.xlarge) - expect 30-45 minutes...")
             
             # Start training (synchronous - waits for completion)
             estimator.fit(
@@ -360,7 +360,7 @@ def main():
     print("  StyGig V4 - Complete MLOps Pipeline")
     print("="*70)
     print("  This script will:")
-    print("    1. Train a fresh V4 model (15-30 min)")
+    print("    1. Train a fresh V4 model (30-45 min on CPU)")
     print("    2. Deploy to real-time endpoint (5-10 min)")
     print("    3. Test with sample inference")
     print("    4. Clean up all resources")
