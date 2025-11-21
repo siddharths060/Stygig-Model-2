@@ -54,7 +54,7 @@ def deploy_async_endpoint(
     model_uri,
     endpoint_name,
     s3_output_path,
-    instance_type='ml.m5.large',
+    instance_type='ml.c5.large',
     instance_count=1,
     sns_topic_arn=None,
     max_concurrent_invocations=10
@@ -66,7 +66,7 @@ def deploy_async_endpoint(
         model_uri: S3 URI to model.tar.gz
         endpoint_name: Name for the async endpoint
         s3_output_path: S3 path for inference results (e.g., s3://bucket/results/)
-        instance_type: EC2 instance type (default: ml.m5.large)
+        instance_type: EC2 instance type (default: ml.c5.large)
         instance_count: Number of instances (default: 1)
         sns_topic_arn: Optional SNS topic for notifications
         max_concurrent_invocations: Max concurrent requests (default: 10)
@@ -270,8 +270,8 @@ Async Benefits:
     parser.add_argument(
         '--instance-type',
         type=str,
-        default='ml.m5.large',
-        help='EC2 instance type (default: ml.m5.large)'
+        default='ml.c5.large',
+        help='EC2 instance type (default: ml.c5.large)'
     )
     
     parser.add_argument(

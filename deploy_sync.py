@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 def deploy_realtime_endpoint(
     model_uri,
     endpoint_name,
-    instance_type='ml.g4dn.xlarge',  # GPU required for V4 CLIP inference
+    instance_type='ml.c5.large',  # CPU instance - expect 450-650ms latency
     instance_count=1
 ):
     """
@@ -60,7 +60,7 @@ def deploy_realtime_endpoint(
     Args:
         model_uri: S3 URI to model.tar.gz (e.g., s3://bucket/model.tar.gz)
         endpoint_name: Name for the endpoint (must be unique in region)
-        instance_type: EC2 instance type for hosting (default: ml.m5.large)
+        instance_type: EC2 instance type for hosting (default: ml.c5.large)
         instance_count: Number of instances (default: 1)
     
     Returns:
@@ -104,7 +104,7 @@ def deploy_realtime_endpoint(
             env={
                 'SAGEMAKER_PROGRAM': 'inference.py',
                 'SAGEMAKER_SUBMIT_DIRECTORY': model_uri,
-                'MMS_DEFAULT_RESPONSE_TIMEOUT': '500'
+                'MMS_DEFAULT_RESPONSE_TIMEOUT': '30000'  # 30 seconds for CPU inference
             }
         )
         
@@ -212,8 +212,8 @@ Instance Type Recommendations:
     parser.add_argument(
         '--instance-type',
         type=str,
-        default='ml.g4dn.xlarge',
-        help='EC2 instance type for hosting (default: ml.g4dn.xlarge, GPU required for V4)'
+        default='ml.c5.large',
+        help='EC2 instance type for hosting (default: ml.c5.large, CPU - expect 450-650ms latency)'
     )
     
     parser.add_argument(

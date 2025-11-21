@@ -82,6 +82,10 @@ class FashionRecommendationInference:
         self.embeddings_dict = {}
         self.config = {}
         
+        # CPU optimization for ml.c5.large
+        self.cpu_optimized = True
+        self.reduced_search_k = 50  # Reduce from 200 to 50 for faster CPU processing
+        
         # Category compatibility and accessory mapping (from original code)
         self.ACCESSORY_MAP = {
             'footwear_shoes': ['bottomwear_pants', 'bottomwear_shorts', 'upperwear_shirt', 'upperwear_tshirt'],
@@ -172,6 +176,12 @@ class FashionRecommendationInference:
             
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             logger.info(f"Using device: {self.device}")
+            
+            # CPU optimization for ml.c5.large
+            if self.device.type == 'cpu':
+                torch.set_num_threads(2)  # Match ml.c5.large vCPU count
+                torch.set_num_interop_threads(1)  # Reduce overhead
+                logger.info("🖥️  CPU optimizations applied: 2 threads, reduced interop")
             
             # Initialize CLIP model with caching and timeout handling
             try:
@@ -615,6 +625,11 @@ class FashionRecommendationInference:
                 items_per_category = 2  # Default fallback
                 search_k = min(200, self.faiss_index.ntotal)
                 logger.info("📊 Standard inference: 2 items per category")
+            
+            # CPU optimization for ml.c5.large: reduce search space for faster processing
+            if self.cpu_optimized and search_k > self.reduced_search_k:
+                search_k = self.reduced_search_k
+                logger.info(f"🖥️  CPU optimization: reduced search_k to {search_k} for faster processing")
             
             # Extract features from query image
             embedding, color_rgb, gender, gender_conf = self.extract_image_features(image)
