@@ -395,6 +395,7 @@ class FashionRecommendationInference:
         - query_color is now an RGB tuple (no longer a string name)
         - Uses top-5 voting for category inference (more robust)
         - Applies category compatibility boost from CATEGORY_COMPATIBILITY rules
+        - Category Exclusion Groups to prevent visual ambiguity (shirt/tshirt leakage)
         
         CRITICAL CHANGE: This method now implements outfit completion (shirt -> pants)
         instead of similarity matching (shirt -> shirt). It excludes same-category items
@@ -409,6 +410,27 @@ class FashionRecommendationInference:
         Returns:
             List of recommendation dictionaries with complementary items from different categories
         """
+        # Category Exclusion Groups: Prevent visual ambiguity leakage
+        # If input is any kind of top, block ALL kinds of tops
+        CATEGORY_EXCLUSION_GROUPS = {
+            # Tops Group: Block all upperwear if input is any upperwear
+            'upperwear_shirt': ['upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket'],
+            'upperwear_tshirt': ['upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket'],
+            'upperwear_top': ['upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket'],
+            'upperwear_blouse': ['upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket'],
+            'upperwear_jacket': ['upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket'],
+            
+            # Bottoms Group: Block all pants/shorts if input is any bottom
+            'bottomwear_pants': ['bottomwear_pants', 'bottomwear_shorts', 'bottomwear_jeans', 'bottomwear_trousers', 'bottomwear_skirt'],
+            'bottomwear_shorts': ['bottomwear_pants', 'bottomwear_shorts', 'bottomwear_jeans', 'bottomwear_skirt'],
+            'bottomwear_jeans': ['bottomwear_pants', 'bottomwear_jeans', 'bottomwear_trousers', 'bottomwear_skirt'],
+            'bottomwear_skirt': ['bottomwear_pants', 'bottomwear_shorts', 'bottomwear_jeans', 'bottomwear_skirt'],
+            
+            # Full Body Group: Dresses are their own category, usually exclude themselves
+            'one-piece_dress': ['one-piece_dress', 'one-piece_jumpsuit'],
+            'one-piece_jumpsuit': ['one-piece_dress', 'one-piece_jumpsuit'],
+        }
+        
         compatible_genders = self._get_compatible_genders(query_gender)
         
         # --- TASK 2 (V4): Top-5 Category Voting for Robustness ---
@@ -435,16 +457,25 @@ class FashionRecommendationInference:
         # STEP 2: Group candidates by category with filtering
         category_candidates = {}
         
+        # Determine what categories to exclude based on the inferred query category
+        excluded_categories = {query_category} if query_category else set()
+        
+        if query_category and query_category in CATEGORY_EXCLUSION_GROUPS:
+            # Add all related categories to the exclusion set
+            excluded_categories.update(CATEGORY_EXCLUSION_GROUPS[query_category])
+            logger.info(f"🚫 Excluding category group for '{query_category}': {excluded_categories}")
+        
         for item, similarity_score in candidates:
             # Filter 1: Skip items with incompatible genders
             if item['gender'] not in compatible_genders:
                 continue
             
-            # Filter 2: OUTFIT COMPLETION - Skip items from the same category as input
-            # This is the KEY FIX: prevents shirt -> shirt recommendations
+            # Filter 2: CATEGORY EXCLUSION GROUPS - Prevent visual ambiguity leakage
+            # This robustly blocks all visually similar categories (e.g., shirt+tshirt)
+            # even if CLIP mis-classifies the input
             category = item['category']
-            if query_category and category == query_category:
-                logger.debug(f"⏭️  Skipping same-category item: {category}")
+            if query_category and category in excluded_categories:
+                logger.debug(f"⏭️ Skipping '{category}' (Group Exclusion for '{query_category}')")
                 continue
             
             # Initialize category list if needed
