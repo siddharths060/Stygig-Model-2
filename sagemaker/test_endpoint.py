@@ -290,6 +290,17 @@ def test_endpoint(endpoint_name, image_path=None, s3_uri=None, top_k=5, save_vis
             gender_score = float(rec.get('gender_score', rec.get('gender_compatibility_score', rec.get('score_components', {}).get('gender_compatibility', 0.0))))
             colors = rec.get('colors') or ([rec.get('color')] if rec.get('color') else [])
 
+            # Normalize color entries to strings (handles tuples/lists returned by inference)
+            def _color_to_str(c):
+                if isinstance(c, (list, tuple)):
+                    try:
+                        return f"RGB{tuple(int(x) for x in c)}"
+                    except Exception:
+                        return str(c)
+                return str(c)
+
+            colors_strs = [_color_to_str(c) for c in colors]
+
             # Print a stable summary for each recommendation
             logger.info(f"{i}. {item_id}")
             logger.info(f"   Category: {category}")
@@ -298,7 +309,7 @@ def test_endpoint(endpoint_name, image_path=None, s3_uri=None, top_k=5, save_vis
             logger.info(f"   Color Match: {color_score:.4f}")
             logger.info(f"   Category Match: {category_score:.4f}")
             logger.info(f"   Gender Match: {gender_score:.4f}")
-            logger.info(f"   Colors: {', '.join(colors)}")
+            logger.info(f"   Colors: {', '.join(colors_strs)}")
             logger.info("")
 
             # Debug: log raw recommendation dict so we can see unexpected schemas
