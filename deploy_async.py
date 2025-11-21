@@ -115,8 +115,8 @@ def deploy_async_endpoint(
             py_version='py310',
             sagemaker_session=sagemaker_session,
             env={
+                'PYTHONPATH': '/opt/ml/model:/opt/ml/model/src',
                 'SAGEMAKER_PROGRAM': 'inference.py',
-                'SAGEMAKER_SUBMIT_DIRECTORY': model_uri,
                 'MMS_DEFAULT_RESPONSE_TIMEOUT': '900',  # 15 min for async
                 'ASYNC_INFERENCE': 'true'
             }
@@ -152,7 +152,7 @@ def deploy_async_endpoint(
             instance_type=instance_type,
             endpoint_name=endpoint_name,
             async_inference_config=async_config,  # CRITICAL: This makes it async
-            serializer=IdentitySerializer(content_type='application/x-image'),
+            serializer=IdentitySerializer(content_type='application/json'),
             deserializer=JSONDeserializer(),
             wait=True
         )
