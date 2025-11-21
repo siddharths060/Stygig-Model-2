@@ -88,7 +88,7 @@ class FashionRecommendationInference:
         
         # CPU optimization for ml.c5.large
         self.cpu_optimized = True
-        self.reduced_search_k = 50  # Reduce from 200 to 50 for faster CPU processing
+        self.reduced_search_k = 500  # Increased to 500 for outfit completion - need to search beyond similar items to find complementary categories
         
         # Category compatibility and accessory mapping (from original code)
         self.ACCESSORY_MAP = {
