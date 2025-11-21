@@ -88,9 +88,10 @@ class FashionRecommendationInference:
         self.embeddings_dict = {}
         self.config = {}
         
-        # CPU optimization for ml.c5.large
-        self.cpu_optimized = True
-        self.reduced_search_k = 500  # Increased to 500 for outfit completion - need to search beyond similar items to find complementary categories
+        # We are running on GPU now by default for V4; disable CPU-only optimizations
+        self.cpu_optimized = False
+        # Increase reduced_search_k to cast a wider net (accessories/footwear can be visually distant)
+        self.reduced_search_k = 2000  # Wider search for outfit completion
         
         # Category compatibility and accessory mapping (from original code)
         self.ACCESSORY_MAP = {
@@ -426,23 +427,48 @@ class FashionRecommendationInference:
             List of recommendation dictionaries with complementary items from different categories
         """
         # CATEGORY EXCLUSION GROUPS: If input is X, exclude everything in list Y
+        # Make Tops and One-Piece (dresses/jumpsuits) mutually exclusive to prevent
+        # recommending full-body dresses for upperwear queries and vice-versa.
         CATEGORY_EXCLUSION_GROUPS = {
-            # Tops Group: Block all upperwear if input is any upperwear
-            'upperwear_shirt': ['upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket'],
-            'upperwear_tshirt': ['upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket'],
-            'upperwear_top': ['upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket'],
-            'upperwear_blouse': ['upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket'],
-            'upperwear_jacket': ['upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket'],
-            
+            # Tops Group: Block all upperwear (and full-body items) if input is any upperwear
+            'upperwear_shirt': [
+                'upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket',
+                'one-piece_dress', 'one-piece_jumpsuit'
+            ],
+            'upperwear_tshirt': [
+                'upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket',
+                'one-piece_dress', 'one-piece_jumpsuit'
+            ],
+            'upperwear_top': [
+                'upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket',
+                'one-piece_dress', 'one-piece_jumpsuit'
+            ],
+            'upperwear_blouse': [
+                'upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket',
+                'one-piece_dress', 'one-piece_jumpsuit'
+            ],
+            'upperwear_jacket': [
+                'upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket',
+                'one-piece_dress', 'one-piece_jumpsuit'
+            ],
+
             # Bottoms Group: Block all pants/shorts if input is any bottom
             'bottomwear_pants': ['bottomwear_pants', 'bottomwear_shorts', 'bottomwear_jeans', 'bottomwear_trousers', 'bottomwear_skirt'],
             'bottomwear_shorts': ['bottomwear_pants', 'bottomwear_shorts', 'bottomwear_jeans', 'bottomwear_skirt'],
             'bottomwear_jeans': ['bottomwear_pants', 'bottomwear_jeans', 'bottomwear_trousers', 'bottomwear_skirt'],
             'bottomwear_skirt': ['bottomwear_pants', 'bottomwear_shorts', 'bottomwear_jeans', 'bottomwear_skirt'],
-            
-            # Full Body Group: Dresses are their own category
-            'one-piece_dress': ['one-piece_dress', 'one-piece_jumpsuit'],
-            'one-piece_jumpsuit': ['one-piece_dress', 'one-piece_jumpsuit'],
+
+            # Full Body Group: Dresses/jumpsuits exclude tops and bottoms (a dress is a full outfit)
+            'one-piece_dress': [
+                'one-piece_dress', 'one-piece_jumpsuit',
+                'upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket',
+                'bottomwear_pants', 'bottomwear_shorts', 'bottomwear_skirt'
+            ],
+            'one-piece_jumpsuit': [
+                'one-piece_dress', 'one-piece_jumpsuit',
+                'upperwear_shirt', 'upperwear_tshirt', 'upperwear_top', 'upperwear_blouse', 'upperwear_jacket',
+                'bottomwear_pants', 'bottomwear_shorts', 'bottomwear_skirt'
+            ],
         }
 
         compatible_genders = self._get_compatible_genders(query_gender)
@@ -634,6 +660,10 @@ class FashionRecommendationInference:
             return ['male', 'unisex']
         elif gender == 'female':
             return ['female', 'unisex']
+        elif gender == 'unisex':
+            # Be conservative for unisex queries: prefer unisex items first,
+            # then male, to reduce accidental female-only (dress) recommendations.
+            return ['unisex', 'male']
         else:
             return ['male', 'female', 'unisex']
     
