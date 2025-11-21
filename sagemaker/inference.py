@@ -142,8 +142,15 @@ class FashionRecommendationInference:
             metadata_path = self.model_dir / 'metadata.pkl'
             if metadata_path.exists():
                 with open(metadata_path, 'rb') as f:
-                    self.metadata = pickle.load(f)
-                logger.info(f"Loaded metadata for {len(self.metadata)} categories")
+                    metadata_dict = pickle.load(f)
+                    
+                    # Flatten category-grouped metadata into single list
+                    # metadata_dict structure: {'category_name': [item1, item2, ...], ...}
+                    self.metadata = []
+                    for category_items in metadata_dict.values():
+                        self.metadata.extend(category_items)
+                    
+                    logger.info(f"Loaded metadata: {len(metadata_dict)} categories, {len(self.metadata)} total items")
             
             # Load embeddings
             embeddings_path = self.model_dir / 'embeddings.npz'
